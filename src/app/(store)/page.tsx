@@ -6,11 +6,13 @@ import { FaqSection } from "@/components/store/faq-section";
 import { Hero } from "@/components/store/hero";
 import { Lifestyle } from "@/components/store/lifestyle";
 import { ProcessSection } from "@/components/store/process-section";
+import { PromoBanners } from "@/components/store/promo-banners";
 
 export default function HomePage() {
   return (
     <main>
       <Hero />
+      <PromoBanners />
       <CraftGrid />
       <Collection />
       <BrandStory />

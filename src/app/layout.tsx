@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Geist_Mono, Inter, Playfair_Display } from "next/font/google";
+import { siteUrl } from "@/lib/site";
+
 import "./globals.css";
 
 const inter = Inter({
@@ -22,10 +24,22 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const description =
+  "Hand-tufted and hand-knotted rugs and carpets, made in sizes that fit your room.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "Ganga Handmade Export | Handmade Rugs & Carpets",
-  description:
-    "Hand-tufted and hand-knotted rugs and carpets, made in sizes that fit your room.",
+  description,
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "Ganga Handmade Export",
+    description,
+    siteName: "Ganga Handmade Export",
+    type: "website",
+    locale: "en_IN",
+    images: ["/images/hero-living-room.jpg"],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

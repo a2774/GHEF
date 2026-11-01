@@ -7,8 +7,9 @@ import {
   clearAttempts,
   consumeAttempt,
   createAdminSession,
-  credentialsMatch,
   destroyAdminSession,
+  findAdmin,
+  logAdminAction,
 } from "@/server/auth/admin-session";
 
 const accountKey = "admin-login:account";
@@ -24,14 +25,12 @@ export async function login(_previous: string | null, form: FormData) {
     return "Too many attempts. Try again in 15 minutes.";
   }
 
-  const email = String(form.get("email") ?? "");
-  const password = String(form.get("password") ?? "");
-  if (!credentialsMatch(email, password)) {
-    return "Incorrect email or password.";
-  }
+  const admin = await findAdmin(String(form.get("email") ?? ""), String(form.get("password") ?? ""));
+  if (!admin) return "Incorrect email or password.";
 
   await Promise.all([clearAttempts(ipKey), clearAttempts(accountKey)]);
-  await createAdminSession();
+  await createAdminSession(admin);
+  await logAdminAction(admin, "login", "session");
   redirect("/admin");
 }
 

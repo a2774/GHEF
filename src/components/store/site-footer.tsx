@@ -4,10 +4,29 @@ import { BrandLogo } from "./brand-logo";
 import { NewsletterForm } from "./newsletter-form";
 
 const footerLinks = [
-  { title: "Shop", links: ["Collection", "Custom Sizes"] },
-  { title: "Help", links: ["Shipping", "Returns", "Contact"] },
-  { title: "Legal", links: ["Privacy", "Terms", "Cookie Settings"] },
-  { title: "Follow", links: ["Instagram", "Pinterest", "YouTube"] },
+  {
+    title: "Shop",
+    links: [
+      { label: "All products", href: "/products" },
+      { label: "Custom sizes", href: "/#custom" },
+    ],
+  },
+  {
+    title: "Company",
+    links: [
+      { label: "Our story", href: "/#story" },
+      { label: "Bulk and export", href: "/#custom" },
+    ],
+  },
+  {
+    title: "Help",
+    links: [
+      { label: "Shipping", href: "/policies/shipping" },
+      { label: "Returns", href: "/policies/returns" },
+      { label: "Privacy", href: "/policies/privacy" },
+      { label: "Terms", href: "/policies/terms" },
+    ],
+  },
 ];
 
 export function SiteFooter() {
@@ -22,18 +41,18 @@ export function SiteFooter() {
               <NewsletterForm />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
             {footerLinks.map(({ title, links }) => (
               <div key={title}>
                 <h3 className="text-lg font-semibold">{title}</h3>
                 <ul className="mt-3">
-                  {links.map((link) => (
-                    <li key={link}>
+                  {links.map(({ label, href }) => (
+                    <li key={label}>
                       <Link
-                        href="#"
+                        href={href}
                         className="block py-1.5 text-base text-white/70 transition-colors hover:text-white"
                       >
-                        {link}
+                        {label}
                       </Link>
                     </li>
                   ))}

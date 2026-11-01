@@ -1,11 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { BagSheet } from "./bag-sheet";
+import { AccountButton } from "./account-button";
+import { HeaderLinks } from "./header-links";
 import { MobileMenu } from "./mobile-menu";
+import { SiteSearch } from "./site-search";
 
 const navItems = [
-  { label: "Shop", href: "/#collection" },
+  { label: "Shop", href: "/products" },
   { label: "Collections", href: "/#spaces" },
   { label: "Our Story", href: "/#story" },
 ];
@@ -20,7 +22,8 @@ export function SiteHeader() {
             Ganga Handmade Export
           </span>
         </Link>
-        <nav aria-label="Main" className="hidden items-center gap-9 text-base lg:flex">
+        <SiteSearch className="hidden max-w-sm flex-1 lg:block" />
+        <nav aria-label="Main" className="hidden items-center gap-7 text-base whitespace-nowrap lg:flex">
           {navItems.map(({ label, href }) => (
             <Link key={label} href={href} className="transition-opacity hover:opacity-70">
               {label}
@@ -28,8 +31,9 @@ export function SiteHeader() {
           ))}
         </nav>
         <div className="flex shrink-0 items-center">
-          <BagSheet />
-          <MobileMenu items={navItems} />
+          <AccountButton />
+          <HeaderLinks />
+          <MobileMenu items={[...navItems, { label: "Wishlist", href: "/wishlist" }]} />
         </div>
       </div>
     </header>

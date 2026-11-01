@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { consumeAttempt } from "@/server/auth/admin-session";
 import { createEnquiry } from "@/server/services/enquiries";
 
 const phonePattern = /^\+?[0-9 ()-]{7,20}$/;
@@ -10,6 +11,11 @@ function cleanText(value: unknown, maxLength: number) {
 }
 
 export async function POST(request: Request) {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!(await consumeAttempt(`enquiry:${ip}`, 10))) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
+  }
+
   const body = await request.json().catch(() => null);
   const type = body?.type;
   const name = cleanText(body?.name, 120);

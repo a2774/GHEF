@@ -1,36 +1,116 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ganga Handmade Export
 
-## Getting Started
+E-commerce website for handmade carpets, rugs and home decor, with a customer storefront and a role-based admin panel.
 
-First, run the development server:
+Built with Next.js 16 (App Router), TypeScript, Tailwind CSS, shadcn/ui, Neon Postgres, Drizzle ORM, Auth.js, Cloudinary, Razorpay and Resend.
+
+Project documents: [PRD](docs/PRD.md), [implementation plan](docs/IMPLEMENTATION_PLAN.md), [audit](docs/AUDIT.md), [roadmap](docs/ROADMAP.md).
+
+## Getting started
+
+Requires Node.js 20.19 or newer.
+
+```bash
+npm install
+```
+
+```bash
+neon env pull
+```
+
+Copy `.env.example` to `.env.local` if you are not using `neon env pull`, then fill in the values below.
+
+```bash
+npm run db:migrate
+```
+
+```bash
+npm run db:seed
+```
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000>. The admin panel is at <http://localhost:3000/admin/login>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Commands
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Development server |
+| `npm run build` | Production build (needs a database connection) |
+| `npm run start` | Production server |
+| `npm run lint` | ESLint |
+| `npm test` | Unit tests |
+| `npm run db:generate` | Create a migration from `src/server/db/schema.ts` |
+| `npm run db:migrate` | Apply migrations |
+| `npm run db:seed` | Add the sample catalogue |
 
-## Learn More
+Migrations use `DATABASE_URL_UNPOOLED`. The app uses the pooled `DATABASE_URL`. Test risky migrations on a Neon branch first, and never reset a production database to apply a schema change.
 
-To learn more about Next.js, take a look at the following resources:
+## Configuration
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Variable | Required | Purpose |
+|---|---|---|
+| `DATABASE_URL`, `DATABASE_URL_UNPOOLED` | Yes | Neon Postgres |
+| `AUTH_SECRET` | Yes | Customer sessions. Generate with `openssl rand -base64 32` |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Yes | Owner login for the admin panel |
+| `NEXT_PUBLIC_SITE_URL` | Yes | Public site address, used for SEO links |
+| `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | For uploads | Product images |
+| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | Optional | Google Sign-In. The button appears when both are set |
+| `RESEND_API_KEY`, `NOTIFY_EMAIL`, `EMAIL_FROM` | Optional | Owner email alerts |
+| `NEXT_PUBLIC_RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Optional | Online payments. The option appears when the keys are set |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`NEXT_PUBLIC_` values are compiled into the browser build, so rebuild after changing them. Never commit `.env.local`.
 
-## Deploy on Vercel
+### Google Sign-In
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. In Google Cloud Console, create an OAuth client of type Web application.
+2. Add the redirect URI `https://YOUR_DOMAIN/api/auth/callback/google`, plus `http://localhost:3000/api/auth/callback/google` for development.
+3. Set `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`, then restart the server.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Razorpay
+
+1. In the Razorpay dashboard, switch to Test Mode and generate a key pair.
+2. Set `NEXT_PUBLIC_RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`, then rebuild.
+3. Add a webhook to `https://YOUR_DOMAIN/api/payments/razorpay/webhook` for `payment.captured` and `payment.failed`, and set `RAZORPAY_WEBHOOK_SECRET`.
+4. Test a successful and a failed payment before switching to live keys.
+
+### Cloudinary
+
+Copy the cloud name, API key and API secret from the Cloudinary console. Uploads are signed on the server, and the secret never reaches the browser.
+
+### Email
+
+Set `RESEND_API_KEY`. Resend's shared sender only reaches the account owner's address, so verify a domain and set `EMAIL_FROM` before sending to customers.
+
+## Project structure
+
+```text
+src/app/(store)/      storefront pages
+src/app/admin/        admin panel
+src/app/api/          route handlers
+src/components/       store, admin and shadcn UI components
+src/server/db/        schema, connection, seed
+src/server/services/  business logic
+src/server/actions/   server actions
+src/server/auth/      customer and admin auth
+drizzle/              migrations
+docs/                 product and planning documents
+```
+
+## Deployment
+
+1. Create a production Neon branch and set all required variables on the host.
+2. Set `NEXT_PUBLIC_SITE_URL` to the public HTTPS address.
+3. Run `npm run db:migrate` against production before deploying.
+4. Build with `npm run build` and start with `npm run start`, or deploy to a Node host such as Vercel.
+5. Replace the sample catalogue and placeholder photos, and review the policy pages with a lawyer.
+6. Configure the Razorpay webhook and Google redirect URI for the production domain.
+7. Confirm that the host sets `x-forwarded-for`, because rate limits use it. Behind no proxy, this header can be spoofed.
+8. Place one real test order from start to finish.
+
+## Testing
+
+`npm test` runs pricing, coupon, order status, Razorpay signature and redirect tests. Browser checks are manual for now, using the flows in [the implementation plan](docs/IMPLEMENTATION_PLAN.md).
