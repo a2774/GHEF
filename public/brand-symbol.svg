@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Ganga Handmade Export symbol">
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6e3a1"/>
+      <stop offset="0.45" stop-color="#d4a94a"/>
+      <stop offset="0.7" stop-color="#f3dc93"/>
+      <stop offset="1" stop-color="#a87a26"/>
+    </linearGradient>
+  </defs>
+  <circle cx="200" cy="200" r="192" fill="#090807" stroke="url(#gold)" stroke-width="14"/>
+  <path fill="url(#gold)" d="M172 60H228V88H256V116H284V144H312V172H340V228H312V256H284V284H256V312H228V340H172V312H144V284H116V256H88V228H60V172H88V144H116V116H144V88H172Z"/>
+  <g fill="none" stroke="#090807" stroke-width="24" stroke-linecap="round">
+    <path d="M54 160q49 -52 98 0t98 0t98 0"/>
+    <path d="M54 226q49 -52 98 0t98 0t98 0"/>
+  </g>
+  <path fill="#090807" d="M200 90L205 105L220 110L205 115L200 130L195 115L180 110L195 105Z"/>
+  <path fill="#090807" d="M200 278L205 293L220 298L205 303L200 318L195 303L180 298L195 293Z"/>
+</svg>
