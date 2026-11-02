@@ -7,15 +7,11 @@ import {
   Boxes,
   Calendar,
   Check,
-  Clock,
-  Layers,
   MessageSquareText,
-  Package,
   Plus,
   RotateCw,
   ShoppingCart,
   TrendingUp,
-  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";

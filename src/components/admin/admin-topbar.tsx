@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Sparkles, Zap } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -35,7 +35,7 @@ const routeTitleMap: Record<string, string> = {
 
 export function AdminTopBar({ admin }: { admin: AdminIdentity }) {
   const pathname = usePathname();
-  const { mode, setMode, isPro } = useAdminMode();
+  const { setMode, isPro } = useAdminMode();
 
   // Find readable page title
   let activeTitle = "Admin Control";

@@ -9,7 +9,6 @@ import {
   Loader2,
   Percent,
   Power,
-  RotateCcw,
   Search,
   Sparkles,
   Tag,
@@ -65,9 +64,11 @@ export function CouponManager({ initialCoupons }: CouponManagerProps) {
   const [togglingId, setTogglingId] = React.useState<number | null>(null);
   const [formError, setFormError] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
+  const [prevInitialCoupons, setPrevInitialCoupons] = React.useState(initialCoupons);
+  if (initialCoupons !== prevInitialCoupons) {
+    setPrevInitialCoupons(initialCoupons);
     setCoupons(initialCoupons);
-  }, [initialCoupons]);
+  }
 
   const handleApplyPreset = (p: (typeof PRESETS)[number]) => {
     setCode(p.code);
@@ -157,7 +158,7 @@ export function CouponManager({ initialCoupons }: CouponManagerProps) {
     }
   };
 
-  const handleDelete = async (id: number, couponCode: string) => {
+  const handleDelete = async (id: number) => {
     await deleteCoupon(id);
     setCoupons((prev) => prev.filter((c) => c.id !== id));
   };
@@ -560,7 +561,7 @@ export function CouponManager({ initialCoupons }: CouponManagerProps) {
                       description={`Are you sure you want to delete coupon "${coupon.code}"? Customers will no longer be able to redeem this promotion at checkout. This cannot be undone.`}
                       confirmText="Delete Coupon"
                       successMessage={`Coupon "${coupon.code}" permanently deleted`}
-                      onConfirm={() => handleDelete(coupon.id, coupon.code)}
+                      onConfirm={() => handleDelete(coupon.id)}
                       trigger={
                         <Button
                           type="button"

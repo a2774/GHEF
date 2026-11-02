@@ -1,32 +1,48 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { AdminNav } from "./admin-nav";
 import { MobileAdminNav } from "./mobile-admin-nav";
 import type { AdminIdentity } from "@/server/auth/admin-session";
 
-export function AdminSidebarWrapper({ admin }: { admin: AdminIdentity }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+const sidebarListeners = new Set<() => void>();
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("admin_sidebar_collapsed");
-      if (saved === "true") setIsCollapsed(true);
-    } catch {
-      // localStorage may fail in private mode
-    }
-  }, []);
+function subscribeSidebar(onStoreChange: () => void) {
+  sidebarListeners.add(onStoreChange);
+  window.addEventListener("storage", onStoreChange);
+  return () => {
+    sidebarListeners.delete(onStoreChange);
+    window.removeEventListener("storage", onStoreChange);
+  };
+}
+
+function getSidebarSnapshot(): boolean {
+  try {
+    return localStorage.getItem("admin_sidebar_collapsed") === "true";
+  } catch {
+    return false;
+  }
+}
+
+function getServerSidebarSnapshot(): boolean {
+  return false;
+}
+
+export function AdminSidebarWrapper({ admin }: { admin: AdminIdentity }) {
+  const isCollapsed = useSyncExternalStore(
+    subscribeSidebar,
+    getSidebarSnapshot,
+    getServerSidebarSnapshot
+  );
 
   const toggleCollapse = () => {
-    setIsCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem("admin_sidebar_collapsed", String(next));
-      } catch {
-        // ignore
-      }
-      return next;
-    });
+    const next = !isCollapsed;
+    try {
+      localStorage.setItem("admin_sidebar_collapsed", String(next));
+    } catch {
+      // ignore
+    }
+    sidebarListeners.forEach((listener) => listener());
   };
 
   return (

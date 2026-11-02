@@ -10,7 +10,7 @@ import { useAdminMode } from "@/components/admin/admin-mode-context";
 
 export function MobileAdminNav({ admin }: { admin: AdminIdentity }) {
   const [open, setOpen] = useState(false);
-  const { mode, toggleMode, isPro } = useAdminMode();
+  const { toggleMode, isPro } = useAdminMode();
 
   return (
     <>

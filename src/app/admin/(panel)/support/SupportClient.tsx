@@ -2,20 +2,12 @@
 
 import { useState } from "react";
 import {
-  AlertCircle,
-  Archive,
-  ArrowRight,
   CheckCircle2,
   Clock,
-  ExternalLink,
-  Headphones,
   LifeBuoy,
-  MessageSquare,
   Search,
   Send,
   Sparkles,
-  Tag,
-  User,
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -177,14 +169,12 @@ export function SupportClient() {
   const [tickets, setTickets] = useState<SupportTicket[]>(INITIAL_TICKETS);
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "open" | "in_progress" | "resolved">("all");
-  const [filterCategory, setFilterCategory] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [replyText, setReplyText] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
 
   const filtered = tickets.filter((t) => {
     const matchStatus = filterStatus === "all" ? true : t.status === filterStatus;
-    const matchCat = filterCategory === "all" ? true : t.category === filterCategory;
     const q = search.toLowerCase();
     const matchSearch =
       !q ||
@@ -192,7 +182,7 @@ export function SupportClient() {
       t.email.toLowerCase().includes(q) ||
       t.subject.toLowerCase().includes(q) ||
       (t.orderNumber && t.orderNumber.toLowerCase().includes(q));
-    return matchStatus && matchCat && matchSearch;
+    return matchStatus && matchSearch;
   });
 
   const openCount = tickets.filter((t) => t.status === "open").length;

@@ -27,16 +27,18 @@ const fieldClass =
 
 export function BannerManager({ initialBanners }: BannerManagerProps) {
   const [banners, setBanners] = React.useState<BannerItem[]>(initialBanners);
+  const [prevInitialBanners, setPrevInitialBanners] = React.useState(initialBanners);
+  if (initialBanners !== prevInitialBanners) {
+    setPrevInitialBanners(initialBanners);
+    setBanners(initialBanners);
+  }
+
   const [title, setTitle] = React.useState("");
   const [subtitle, setSubtitle] = React.useState("");
   const [linkUrl, setLinkUrl] = React.useState("");
   const [position, setPosition] = React.useState("0");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [togglingId, setTogglingId] = React.useState<number | null>(null);
-
-  React.useEffect(() => {
-    setBanners(initialBanners);
-  }, [initialBanners]);
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -91,7 +93,7 @@ export function BannerManager({ initialBanners }: BannerManagerProps) {
     }
   };
 
-  const handleDelete = async (id: number, currentTitle: string) => {
+  const handleDelete = async (id: number) => {
     await deleteBanner(id);
     setBanners((prev) => prev.filter((b) => b.id !== id));
   };
@@ -245,7 +247,7 @@ export function BannerManager({ initialBanners }: BannerManagerProps) {
                       description={`Are you sure you want to remove the banner "${banner.title}" from your storefront carousel?`}
                       confirmText="Delete Banner"
                       successMessage={`Banner "${banner.title}" deleted`}
-                      onConfirm={() => handleDelete(banner.id, banner.title)}
+                      onConfirm={() => handleDelete(banner.id)}
                       trigger={
                         <Button
                           type="button"

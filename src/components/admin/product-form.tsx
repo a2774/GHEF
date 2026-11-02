@@ -83,7 +83,6 @@ export function ProductForm({
       : [{ key: 1, size: "", color: "", sku: "", price: "", mrp: "", stock: "0" }],
   );
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
 
   function updateRow(key: number, field: keyof VariantRow, value: string) {
@@ -131,11 +130,9 @@ export function ProductForm({
       })),
     };
 
-    setSaved(false);
     startTransition(async () => {
       const message = await saveProduct(input);
       setError(message);
-      setSaved(!message);
       if (message) {
         toast.error(message);
       } else {

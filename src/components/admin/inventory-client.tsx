@@ -2,11 +2,8 @@
 
 import { useMemo, useState } from "react";
 import {
-  AlertTriangle,
   ArrowUpDown,
   Boxes,
-  Check,
-  Package,
   RotateCw,
   Search,
 } from "lucide-react";

@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
-import { Check, Eye, EyeOff, Lock, Plus, UserPlus } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import { Eye, EyeOff, Plus, UserPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

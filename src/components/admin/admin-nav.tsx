@@ -21,7 +21,6 @@ import {
   Send,
   Settings,
   Shield,
-  ShieldCheck,
   ShoppingBag,
   ShoppingCart,
   Star,

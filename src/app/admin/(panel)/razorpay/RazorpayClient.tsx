@@ -95,7 +95,7 @@ interface VerificationResult {
 }
 
 export function RazorpayClient() {
-  const [events, setEvents] = useState<GatewayEvent[]>(INITIAL_EVENTS);
+  const [events] = useState<GatewayEvent[]>(INITIAL_EVENTS);
   const [verifyInput, setVerifyInput] = useState("");
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);

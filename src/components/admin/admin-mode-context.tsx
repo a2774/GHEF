@@ -1,8 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useTransition } from "react";
-import { usePathname } from "next/navigation";
-import { Zap, Sparkles, X, ChevronRight, ShieldCheck } from "lucide-react";
+import React, { createContext, useContext, useSyncExternalStore } from "react";
 
 export type AdminMode = "normal" | "pro";
 
@@ -16,6 +14,32 @@ interface AdminModeContextType {
 const AdminModeContext = createContext<AdminModeContextType | null>(null);
 
 const STORAGE_KEY = "ghef_admin_mode";
+const listeners = new Set<() => void>();
+
+function subscribe(onStoreChange: () => void) {
+  listeners.add(onStoreChange);
+  window.addEventListener("storage", onStoreChange);
+  return () => {
+    listeners.delete(onStoreChange);
+    window.removeEventListener("storage", onStoreChange);
+  };
+}
+
+function getSnapshot(): AdminMode {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === "normal" || saved === "pro") {
+      return saved;
+    }
+  } catch {
+    // localStorage may fail in some environments
+  }
+  return "normal";
+}
+
+function getServerSnapshot(): AdminMode {
+  return "normal";
+}
 
 export const PRO_ROUTES: Record<string, { title: string; category: string }> = {
   "/admin/categories": { title: "Category Taxonomy", category: "Catalog" },
@@ -50,29 +74,15 @@ export function getProRouteMeta(pathname: string): { title: string; category: st
 }
 
 export function AdminModeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setModeState] = useState<AdminMode>("normal");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved === "normal" || saved === "pro") {
-        setModeState(saved);
-      }
-    } catch {
-      // localStorage may fail in some environments
-    } finally {
-      setMounted(true);
-    }
-  }, []);
+  const mode = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const setMode = (newMode: AdminMode) => {
-    setModeState(newMode);
     try {
       localStorage.setItem(STORAGE_KEY, newMode);
     } catch {
       // ignore
     }
+    listeners.forEach((listener) => listener());
   };
 
   const toggleMode = () => {
