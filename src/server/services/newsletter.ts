@@ -1,3 +1,5 @@
+import { desc } from "drizzle-orm";
+
 import { db, withDbRetry } from "@/server/db";
 import { newsletterSubscribers } from "@/server/db/schema";
 import { notifyOwner } from "@/server/services/notifications";
@@ -19,4 +21,10 @@ export async function subscribeToNewsletter(email: string) {
       replyTo: normalizedEmail,
     });
   }
+}
+
+export async function listNewsletterSubscribers() {
+  return withDbRetry(async () =>
+    db.select().from(newsletterSubscribers).orderBy(desc(newsletterSubscribers.consentedAt)).limit(200),
+  );
 }
