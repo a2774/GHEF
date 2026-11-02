@@ -13,7 +13,7 @@ async function AdminSidebar() {
   return (
     <>
       <MobileAdminNav admin={admin} />
-      <aside className="hidden h-screen sticky top-0 overflow-y-auto bg-[#0B0F19] p-5 text-white lg:flex lg:flex-col lg:w-64 border-r border-white/10 shrink-0 select-none">
+      <aside className="hidden h-screen sticky top-0 bg-[#0B0F19] text-white lg:flex lg:flex-col lg:w-64 border-r border-white/10 shrink-0 select-none overflow-hidden">
         <AdminNav admin={admin} />
       </aside>
     </>

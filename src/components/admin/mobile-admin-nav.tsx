@@ -37,7 +37,7 @@ export function MobileAdminNav({ admin }: { admin: AdminIdentity }) {
             className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity"
             onClick={() => setOpen(false)}
           />
-          <div className="relative flex w-4/5 max-w-xs flex-col bg-[#0B0F19] p-5 text-white shadow-2xl border-r border-white/10">
+          <div className="relative flex w-4/5 max-w-xs h-full flex-col bg-[#0B0F19] text-white shadow-2xl border-r border-white/10 overflow-hidden">
             <AdminNav admin={admin} onNavigate={() => setOpen(false)} />
           </div>
         </div>

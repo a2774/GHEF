@@ -5,7 +5,7 @@ export const metadata = {
   title: "Live Visual Storefront Editor | Admin | Ganga Handmade",
 };
 
-export const dynamic = "force-dynamic";
+export const instant = false;
 
 export default async function AdminPreviewPage() {
   await requireAdmin("staff");
