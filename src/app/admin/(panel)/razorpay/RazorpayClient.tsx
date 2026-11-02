@@ -84,10 +84,25 @@ function formatRupees(amount: number) {
   }).format(amount);
 }
 
+interface VerificationResult {
+  query: string;
+  status: string;
+  amountPaise: number;
+  currency: string;
+  method: string;
+  signatureValid: boolean;
+  customerEmail: string;
+  orderId: string;
+  notes: {
+    rugTitle: string;
+    size: string;
+  };
+}
+
 export function RazorpayClient() {
   const [events, setEvents] = useState<GatewayEvent[]>(INITIAL_EVENTS);
   const [verifyInput, setVerifyInput] = useState("");
-  const [verificationResult, setVerificationResult] = useState<any | null>(null);
+  const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [copied, setCopied] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
