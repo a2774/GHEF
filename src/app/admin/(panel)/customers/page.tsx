@@ -7,6 +7,8 @@ import { requireAdmin } from "@/server/auth/admin-session";
 import { db, withDbRetry } from "@/server/db";
 import { orders, users } from "@/server/db/schema";
 
+export const instant = false;
+
 export default async function AdminCustomersPage({
   searchParams,
 }: {
@@ -39,40 +41,79 @@ export default async function AdminCustomersPage({
   );
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-4xl font-semibold tracking-tight">Customers</h1>
-      <form className="flex gap-2">
-        <Input name="q" defaultValue={q} aria-label="Search customers" placeholder="Name, email or mobile" className="h-11 max-w-sm rounded-xl bg-card px-3 text-base md:text-base" />
-        <Button type="submit" variant="outline" className="h-11 rounded-full px-6 text-base">
+    <div className="space-y-6 pb-12">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-950">
+          Customer Accounts
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          View registered customer accounts, transaction histories, and contact info.
+        </p>
+      </div>
+
+      {/* Filter / Search Bar */}
+      <form className="flex flex-wrap items-center gap-2.5">
+        <div className="relative flex-1 min-w-[240px] max-w-md">
+          <Input
+            name="q"
+            defaultValue={q}
+            aria-label="Search customers"
+            placeholder="Search by customer name, email or phone..."
+            className="h-9 w-full rounded-full border border-slate-200/90 bg-white pl-4 pr-4 text-xs shadow-2xs focus:border-[#bef264]"
+          />
+        </div>
+
+        <Button
+          type="submit"
+          className="h-9 rounded-full bg-[#0B0F19] px-5 text-xs font-semibold text-white shadow-2xs hover:bg-[#1a233a] cursor-pointer"
+        >
           Search
         </Button>
       </form>
-      <div className="overflow-x-auto rounded-2xl bg-card">
-        <table className="w-full min-w-[640px] text-left text-base">
-          <thead className="text-muted-foreground">
+
+      {/* Table Container */}
+      <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-2xs">
+        <table className="w-full min-w-[640px] text-left text-sm text-slate-700">
+          <thead className="border-b border-slate-100 bg-slate-50/70 text-xs font-semibold uppercase tracking-wider text-slate-500">
             <tr>
-              <th className="p-4 font-medium">Name</th>
-              <th className="p-4 font-medium">Email</th>
-              <th className="p-4 font-medium">Mobile</th>
-              <th className="p-4 font-medium">Joined</th>
-              <th className="p-4 font-medium">Orders</th>
+              <th className="px-5 py-3.5">Customer Name</th>
+              <th className="px-5 py-3.5">Email</th>
+              <th className="px-5 py-3.5">Mobile</th>
+              <th className="px-5 py-3.5">Joined Date</th>
+              <th className="px-5 py-3.5 text-right">Lifetime Orders</th>
             </tr>
           </thead>
-          <tbody>
-            {rows.length === 0 && (
+          <tbody className="divide-y divide-slate-100">
+            {rows.length === 0 ? (
               <tr>
-                <td colSpan={5} className="p-6 text-lg text-muted-foreground">No customers found.</td>
+                <td colSpan={5} className="px-5 py-8 text-center text-sm text-slate-500">
+                  No customers found matching this query.
+                </td>
               </tr>
+            ) : (
+              rows.map((user) => (
+                <tr key={user.id} className="transition-colors hover:bg-slate-50/60">
+                  <td className="px-5 py-3.5 font-medium text-slate-900">
+                    {user.name || "Unnamed Customer"}
+                  </td>
+                  <td className="px-5 py-3.5 font-mono text-xs text-slate-600">
+                    {user.email}
+                  </td>
+                  <td className="px-5 py-3.5 font-mono text-xs text-slate-600">
+                    {user.phone || "—"}
+                  </td>
+                  <td className="px-5 py-3.5 text-xs text-slate-400 font-mono">
+                    {formatDate(user.createdAt)}
+                  </td>
+                  <td className="px-5 py-3.5 text-right">
+                    <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-900 font-mono">
+                      {user.orderCount}
+                    </span>
+                  </td>
+                </tr>
+              ))
             )}
-            {rows.map((user) => (
-              <tr key={user.id} className="border-t border-border">
-                <td className="p-4">{user.name}</td>
-                <td className="p-4">{user.email}</td>
-                <td className="p-4">{user.phone}</td>
-                <td className="p-4">{formatDate(user.createdAt)}</td>
-                <td className="p-4">{user.orderCount}</td>
-              </tr>
-            ))}
           </tbody>
         </table>
       </div>

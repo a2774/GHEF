@@ -5,6 +5,8 @@ import { ProductForm } from "@/components/admin/product-form";
 import { requireAdmin } from "@/server/auth/admin-session";
 import { getAdminProduct, listCategories } from "@/server/services/admin";
 
+export const instant = false;
+
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
   const { id } = await params;
@@ -14,8 +16,15 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   if (!result) notFound();
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-4xl font-semibold tracking-tight">{result.product.title}</h1>
+    <div className="space-y-8 pb-12">
+      <div>
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-950">
+          {result.product.title}
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Edit specifications, upload gallery photos, and update variant sizing & inventory.
+        </p>
+      </div>
       <ImageManager productId={result.product.id} images={result.images} />
       <ProductForm categories={categories} product={result.product} variants={result.variants} />
     </div>

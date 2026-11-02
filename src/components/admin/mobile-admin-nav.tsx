@@ -1,7 +1,6 @@
 "use client";
 
-import { Menu, X } from "lucide-react";
-import Image from "next/image";
+import { Boxes, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -13,24 +12,20 @@ export function MobileAdminNav({ admin }: { admin: AdminIdentity }) {
 
   return (
     <>
-      <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3 lg:hidden">
+      <div className="flex items-center justify-between border-b border-white/10 bg-[#0B0F19] px-4 py-3 text-white lg:hidden">
         <Link href="/admin" className="flex items-center gap-2.5">
-          <Image
-            src="/brand-symbol.svg"
-            alt="GHE Admin"
-            width={28}
-            height={28}
-            className="size-7 shrink-0"
-          />
-          <span className="font-heading text-base font-semibold tracking-tight">
-            GHE Admin
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#bef264] text-slate-950 font-bold shadow-2xs">
+            <Boxes className="size-4 text-slate-950" />
+          </div>
+          <span className="text-sm font-bold tracking-tight text-white">
+            Ganga Handmade <span className="text-[#bef264] font-mono text-xs">EXPORT</span>
           </span>
         </Link>
         <button
           type="button"
           aria-label="Toggle navigation menu"
           onClick={() => setOpen((prev) => !prev)}
-          className="rounded-lg border border-input p-2 text-foreground transition-colors hover:bg-muted"
+          className="rounded-lg border border-white/10 bg-white/5 p-2 text-white transition-colors hover:bg-white/10"
         >
           {open ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
@@ -39,10 +34,10 @@ export function MobileAdminNav({ admin }: { admin: AdminIdentity }) {
       {open && (
         <div className="fixed inset-0 z-50 flex lg:hidden">
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity"
             onClick={() => setOpen(false)}
           />
-          <div className="relative flex w-4/5 max-w-xs flex-col bg-ink p-5 text-white shadow-xl">
+          <div className="relative flex w-4/5 max-w-xs flex-col bg-[#0B0F19] p-5 text-white shadow-2xl border-r border-white/10">
             <AdminNav admin={admin} onNavigate={() => setOpen(false)} />
           </div>
         </div>

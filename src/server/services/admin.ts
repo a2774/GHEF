@@ -3,6 +3,8 @@ import { and, count, desc, eq, ilike, lte, notInArray, or, sql, sum } from "driz
 import { db, withDbRetry } from "@/server/db";
 import {
   categories,
+  enquiries,
+  newsletterSubscribers,
   orderItems,
   orders,
   orderStatus,
@@ -26,6 +28,17 @@ export async function getDashboardData() {
       .from(orders)
       .where(eq(orders.paymentStatus, "paid"));
     const [productTotals] = await db.select({ total: count() }).from(products);
+    const [categoryTotals] = await db.select({ total: count() }).from(categories);
+    const [customerTotals] = await db.select({ total: count() }).from(users);
+    const [enquiryTotals] = await db.select({ total: count() }).from(enquiries);
+    const [newEnquiryTotals] = await db
+      .select({ total: count() })
+      .from(enquiries)
+      .where(eq(enquiries.status, "new"));
+    const [subscriberTotals] = await db
+      .select({ total: count() })
+      .from(newsletterSubscribers);
+
     const lowStock = await db
       .select({
         id: productVariants.id,
@@ -40,12 +53,20 @@ export async function getDashboardData() {
       .where(lte(productVariants.stock, lowStockThreshold))
       .orderBy(productVariants.stock)
       .limit(8);
+
     const recentOrders = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(5);
+
+    const recentEnquiries = await db
+      .select()
+      .from(enquiries)
+      .orderBy(desc(enquiries.createdAt))
+      .limit(4);
+
     const statusCounts = await db
       .select({ status: orders.status, total: count() })
       .from(orders)
       .groupBy(orders.status);
-    const [customers] = await db.select({ total: count() }).from(users);
+
     const bestSellers = await db
       .select({
         title: orderItems.title,
@@ -57,6 +78,7 @@ export async function getDashboardData() {
       .groupBy(orderItems.title)
       .orderBy(desc(sql`sum(${orderItems.quantity})`))
       .limit(5);
+
     const revenueByDay = await db
       .select({
         day: sql<string>`to_char(${orders.createdAt} at time zone 'Asia/Kolkata', 'YYYY-MM-DD')`,
@@ -81,11 +103,16 @@ export async function getDashboardData() {
       orderCount: orderTotals.total,
       revenuePaise: Number(revenue.total ?? 0),
       productCount: productTotals.total,
-      customerCount: customers.total,
+      categoryCount: categoryTotals.total,
+      customerCount: customerTotals.total,
+      enquiryCount: enquiryTotals.total,
+      newEnquiryCount: newEnquiryTotals.total,
+      subscriberCount: subscriberTotals.total,
       pendingCount: countFor(["pending", "confirmed", "processing", "packed"]),
       completedCount: countFor(["delivered"]),
       lowStock,
       recentOrders,
+      recentEnquiries,
       statusCounts,
       bestSellers,
       revenueByDay,

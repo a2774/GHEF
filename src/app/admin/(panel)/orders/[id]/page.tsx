@@ -10,7 +10,9 @@ import { paymentStatus } from "@/server/db/schema";
 import { getAdminOrder } from "@/server/services/admin";
 import { canTransition, nextStatuses, orderStatusLabel } from "@/server/services/order-rules";
 
-const fieldClass = "h-11 w-full rounded-xl border border-input bg-card px-3 text-base capitalize";
+export const instant = false;
+
+const fieldClass = "h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-2xs focus:border-[#bef264] focus:outline-none capitalize";
 
 export default async function AdminOrderPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
@@ -26,45 +28,67 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
   ];
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="max-w-4xl space-y-6 pb-12">
       <div>
-        <h1 className="text-4xl font-semibold tracking-tight">{order.orderNumber}</h1>
-        <p className="mt-1 text-base text-muted-foreground">{formatDate(order.createdAt)}</p>
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-950 font-mono">
+          {order.orderNumber}
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Placed on {formatDate(order.createdAt)} • Payment Method: {order.paymentMethod.toUpperCase()}
+        </p>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl bg-card p-5 text-base">
-          <h2 className="text-xl font-semibold tracking-tight">Customer</h2>
-          <p className="mt-2">{order.customerName}</p>
-          <p>{order.customerEmail}</p>
-          <p>{order.customerPhone}</p>
-          <p className="mt-2 whitespace-pre-line text-muted-foreground">{order.shippingAddress}</p>
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Customer Card */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Customer & Shipping</h2>
+          <div className="mt-3 space-y-1">
+            <p className="text-sm font-semibold text-slate-900">{order.customerName}</p>
+            <p className="text-xs font-mono text-slate-500">{order.customerEmail}</p>
+            <p className="text-xs font-mono text-slate-500">{order.customerPhone}</p>
+            <div className="mt-3 border-t border-slate-100 pt-3">
+              <p className="text-xs text-slate-500 whitespace-pre-line leading-relaxed">
+                {order.shippingAddress}
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="rounded-2xl bg-card p-5 text-base">
-          <h2 className="text-xl font-semibold tracking-tight">Items</h2>
-          <ul className="mt-2 space-y-2">
+
+        {/* Items Card */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Ordered Items</h2>
+          <ul className="mt-3 divide-y divide-slate-100 text-xs">
             {items.map((item) => (
-              <li key={item.id} className="flex justify-between gap-4">
-                <span>
-                  {item.title}, {item.color}, {item.size} × {item.quantity}
+              <li key={item.id} className="py-2.5 flex justify-between gap-4">
+                <div>
+                  <p className="font-medium text-slate-900">{item.title}</p>
+                  <p className="text-slate-400">{item.color} • {item.size} × {item.quantity}</p>
+                </div>
+                <span className="font-semibold text-slate-900">
+                  {formatPaise(item.unitPricePaise * item.quantity)}
                 </span>
-                <span>{formatPaise(item.unitPricePaise * item.quantity)}</span>
               </li>
             ))}
           </ul>
-          <p className="mt-3 flex justify-between border-t border-border pt-3 font-medium">
-            <span>Total ({order.paymentMethod})</span>
+          <div className="mt-3 flex justify-between border-t border-slate-200 pt-3 text-sm font-bold text-slate-950">
+            <span>Total Amount</span>
             <span>{formatPaise(order.totalPaise)}</span>
-          </p>
+          </div>
         </div>
-      </section>
+      </div>
 
+      {/* Fulfillment Controls Form */}
       <form
         key={order.updatedAt.getTime()}
         action={updateOrder.bind(null, order.id)}
-        className="grid gap-4 rounded-2xl bg-muted p-5 md:grid-cols-2"
+        className="grid gap-4 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-2xs md:grid-cols-2"
       >
-        <label className="block text-base font-medium">
+        <div className="md:col-span-2 border-b border-slate-100 pb-3">
+          <h3 className="text-base font-bold text-slate-900">Fulfillment & Tracking Controls</h3>
+          <p className="text-xs text-slate-500">Update status, enter courier and tracking references.</p>
+        </div>
+
+        <label className="block text-xs font-semibold text-slate-700">
           Order status
           <select name="status" defaultValue={order.status} className={`mt-1.5 ${fieldClass}`}>
             {statusOptions.map((value) => (
@@ -74,7 +98,8 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
             ))}
           </select>
         </label>
-        <label className="block text-base font-medium">
+
+        <label className="block text-xs font-semibold text-slate-700">
           Payment status
           <select name="paymentStatus" defaultValue={order.paymentStatus} className={`mt-1.5 ${fieldClass}`}>
             {paymentStatus.enumValues.map((value) => (
@@ -84,37 +109,43 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
             ))}
           </select>
         </label>
-        <label className="block text-base font-medium">
+
+        <label className="block text-xs font-semibold text-slate-700">
           Courier
-          <Input name="courier" defaultValue={order.courier ?? ""} className="mt-1.5 h-11 rounded-xl bg-card px-3 text-base md:text-base" />
+          <Input name="courier" defaultValue={order.courier ?? ""} placeholder="e.g. Blue Dart, Delhivery" className="mt-1.5 h-9 rounded-xl border-slate-200 bg-white px-3 text-xs shadow-2xs" />
         </label>
-        <label className="block text-base font-medium">
+
+        <label className="block text-xs font-semibold text-slate-700">
           Tracking number
-          <Input name="trackingNumber" defaultValue={order.trackingNumber ?? ""} className="mt-1.5 h-11 rounded-xl bg-card px-3 text-base md:text-base" />
+          <Input name="trackingNumber" defaultValue={order.trackingNumber ?? ""} placeholder="e.g. BLU123456789" className="mt-1.5 h-9 rounded-xl border-slate-200 bg-white px-3 text-xs font-mono shadow-2xs" />
         </label>
-        <label className="block text-base font-medium md:col-span-2">
+
+        <label className="block text-xs font-semibold text-slate-700 md:col-span-2">
           Notes
-          <textarea name="notes" rows={3} defaultValue={order.notes ?? ""} className="mt-1.5 w-full rounded-xl border border-input bg-card p-3 text-base" />
+          <textarea name="notes" rows={3} defaultValue={order.notes ?? ""} placeholder="Internal notes on packaging, custom finishing, or delivery requirements..." className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-2xs focus:border-[#bef264] focus:outline-none" />
         </label>
-        <Button type="submit" className="h-12 rounded-full px-8 text-base md:w-fit">
-          Save order
-        </Button>
+
+        <div className="md:col-span-2 flex items-center justify-end">
+          <Button type="submit" className="h-9 rounded-full bg-[#bef264] px-6 text-xs font-bold text-slate-950 shadow-xs hover:bg-[#a3e635] cursor-pointer">
+            Save Order Updates
+          </Button>
+        </div>
       </form>
 
       {returnRequest && (
-        <section className="rounded-2xl bg-card p-5 text-base">
-          <h2 className="text-xl font-semibold tracking-tight">Return request</h2>
-          <p className="mt-2">{returnRequest.reason}</p>
-          <p className="mt-1 text-muted-foreground">{orderStatusLabel(returnRequest.status)}</p>
+        <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
+          <h2 className="text-base font-bold text-slate-900">Return request</h2>
+          <p className="mt-2 text-xs text-slate-600">{returnRequest.reason}</p>
+          <p className="mt-1 text-xs text-slate-400">{orderStatusLabel(returnRequest.status)}</p>
           {order.status === "return_requested" && (
             <div className="mt-3 flex gap-2">
               <form action={decideReturn.bind(null, order.id, "approved")}>
-                <Button type="submit" className="h-11 rounded-full px-6 text-base">
-                  Approve
+                <Button type="submit" className="h-8 rounded-full bg-emerald-600 px-4 text-xs text-white">
+                  Approve Return
                 </Button>
               </form>
               <form action={decideReturn.bind(null, order.id, "rejected")}>
-                <Button type="submit" variant="outline" className="h-11 rounded-full px-6 text-base">
+                <Button type="submit" variant="outline" className="h-8 rounded-full px-4 text-xs">
                   Reject
                 </Button>
               </form>
@@ -124,12 +155,12 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
       )}
 
       {payments.length > 0 && (
-        <section className="rounded-2xl bg-card p-5 text-base">
-          <h2 className="text-xl font-semibold tracking-tight">Payments</h2>
-          <ul className="mt-2 space-y-1">
+        <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
+          <h2 className="text-base font-bold text-slate-900">Payment Transactions</h2>
+          <ul className="mt-2 space-y-1.5 text-xs">
             {payments.map((payment) => (
-              <li key={payment.id}>
-                {payment.provider}: {orderStatusLabel(payment.status)}, {formatPaise(payment.amountPaise)}
+              <li key={payment.id} className="font-mono text-slate-600">
+                {payment.provider}: {orderStatusLabel(payment.status)} • {formatPaise(payment.amountPaise)}
                 {payment.providerPaymentId && ` (${payment.providerPaymentId})`}
               </li>
             ))}
@@ -137,14 +168,10 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
         </section>
       )}
 
-      <p className="text-base text-muted-foreground">
-        Refunds are manual until a payment gateway is connected: refund the customer, then set payment status to refunded.
-      </p>
-
       {canTransition(order.status, "cancelled") && (
-        <form action={cancelOrder.bind(null, order.id)}>
-          <Button type="submit" variant="destructive" className="h-12 rounded-full px-6 text-base">
-            Cancel order and restock
+        <form action={cancelOrder.bind(null, order.id)} className="pt-2">
+          <Button type="submit" variant="destructive" className="h-9 rounded-full px-5 text-xs font-semibold cursor-pointer">
+            Cancel Order & Restock Inventory
           </Button>
         </form>
       )}
