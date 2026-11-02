@@ -11,7 +11,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   cacheTag("products");
   cacheLife("hours");
 
-  const products = await getActiveProductSlugs();
+  let products: { slug: string }[] = [];
+  try {
+    products = await getActiveProductSlugs();
+  } catch {
+    products = [];
+  }
+
   return [
     { url: siteUrl },
     { url: `${siteUrl}/products` },

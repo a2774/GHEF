@@ -10,7 +10,9 @@ if (!process.env.DATABASE_URL) {
 }
 
 const connectionUrl = new URL(process.env.DATABASE_URL);
-connectionUrl.searchParams.set("sslmode", "verify-full");
+if (connectionUrl.hostname !== "localhost" && connectionUrl.hostname !== "127.0.0.1") {
+  connectionUrl.searchParams.set("sslmode", "verify-full");
+}
 
 // On dual-stack networks (especially on Windows), Node attempts IPv6 first.
 // If the local network or ISP blackholes IPv6, standard socket connects hang

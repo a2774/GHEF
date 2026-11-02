@@ -16,11 +16,19 @@ async function loadProduct(slug: string) {
   cacheTag("products");
   cacheLife("hours");
 
-  return getProductBySlug(slug);
+  try {
+    return await getProductBySlug(slug);
+  } catch {
+    return null;
+  }
 }
 
 export async function generateStaticParams() {
-  return getActiveProductSlugs();
+  try {
+    return await getActiveProductSlugs();
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {

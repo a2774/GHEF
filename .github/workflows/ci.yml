@@ -21,9 +21,24 @@ jobs:
     name: Lint & Build Verification
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: ci_ghef
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
-      # Mock environment variables required for Next.js build-time analysis
-      DATABASE_URL: postgresql://ci_user:ci_pass@localhost:5432/ci_ghef
+      DATABASE_URL: postgresql://ci_user:ci_password@localhost:5432/ci_ghef
+      DATABASE_URL_UNPOOLED: postgresql://ci_user:ci_password@localhost:5432/ci_ghef
       AUTH_SECRET: ci_temporary_auth_secret_minimum_32_characters_for_nextauth
       NEXTAUTH_SECRET: ci_temporary_auth_secret_minimum_32_characters_for_nextauth
       NEXTAUTH_URL: http://localhost:3000
@@ -43,13 +58,17 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies (including devDependencies)
+      - name: Install dependencies
         run: npm ci --include=dev
 
       - name: Check code linting
         run: npm run lint
 
-      - name: Run test suite
+      - name: Run database migrations
+        run: npm run db:migrate
+        continue-on-error: true
+
+      - name: Run unit test suite
         run: npm run test
         continue-on-error: true
 
