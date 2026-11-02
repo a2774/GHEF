@@ -23,6 +23,13 @@ export type VariantInput = {
   stock: number;
 };
 
+export type ProductImageInput = {
+  id?: number;
+  publicId: string;
+  url: string;
+  isPrimary?: boolean;
+};
+
 export type ProductInput = {
   id?: number;
   title: string;
@@ -34,6 +41,7 @@ export type ProductInput = {
   isFeatured: boolean;
   isBestseller: boolean;
   variants: VariantInput[];
+  images?: ProductImageInput[];
 };
 
 function slugify(value: string) {
@@ -147,6 +155,22 @@ export async function saveProduct(input: ProductInput) {
             await tx.insert(productVariants).values({ ...row, productId: savedId });
           }
         }
+
+        // Save newly uploaded images on product creation
+        if (input.images && input.images.length > 0) {
+          for (let i = 0; i < input.images.length; i++) {
+            const img = input.images[i];
+            await tx
+              .insert(productImages)
+              .values({
+                productId: savedId,
+                publicId: img.publicId,
+                url: img.url,
+                isPrimary: img.isPrimary ?? i === 0,
+              })
+              .onConflictDoNothing();
+          }
+        }
       }),
     );
   } catch (error) {
@@ -171,7 +195,6 @@ export async function deleteProduct(id: number) {
   await Promise.allSettled(images.map(({ publicId }) => destroyImage(publicId)));
 
   await logAdminAction(admin, "delete", "product", id);
-
 
   refreshStorefront();
   redirect("/admin/products");
