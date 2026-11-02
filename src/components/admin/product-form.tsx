@@ -3,6 +3,8 @@
 import { Plus, Trash2 } from "lucide-react";
 import { type FormEvent, useState, useTransition } from "react";
 
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
+import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { deleteProduct, type ProductInput, saveProduct } from "@/server/actions/admin-products";
@@ -117,13 +119,18 @@ export function ProductForm({
       const message = await saveProduct(input);
       setError(message);
       setSaved(!message);
+      if (message) {
+        toast.error(message);
+      } else {
+        toast.success(product ? "Product saved successfully!" : "Product created successfully!");
+      }
     });
   }
 
-  function handleDelete() {
-    if (!product || !window.confirm(`Delete ${product.title}? This cannot be undone.`)) return;
-    startTransition(() => deleteProduct(product.id));
-  }
+  const handleDelete = async () => {
+    if (!product) return;
+    await deleteProduct(product.id);
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -223,9 +230,24 @@ export function ProductForm({
           {product ? "Save changes" : "Create product"}
         </Button>
         {product && (
-          <Button type="button" variant="destructive" disabled={pending} onClick={handleDelete} className="h-12 rounded-full px-6 text-base">
-            Delete product
-          </Button>
+          <ConfirmDeleteDialog
+            title="Delete Product?"
+            itemName={product.title}
+            description={`Are you sure you want to permanently delete "${product.title}"? This rug and all its inventory variants will be removed from your catalog.`}
+            confirmText="Delete Product"
+            successMessage={`Product "${product.title}" deleted`}
+            onConfirm={handleDelete}
+            trigger={
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={pending}
+                className="h-12 rounded-full px-6 text-base cursor-pointer"
+              >
+                Delete product
+              </Button>
+            }
+          />
         )}
       </div>
     </form>

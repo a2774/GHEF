@@ -14,20 +14,30 @@ const couponSchema = z
       .string()
       .trim()
       .toUpperCase()
-      .regex(/^[A-Z0-9-]{3,40}$/),
+      .regex(/^[A-Z0-9-]{3,40}$/, "Code must be 3-40 alphanumeric characters or hyphens."),
     type: z.enum(["percent", "fixed"]),
-    value: z.coerce.number().positive(),
+    value: z.coerce.number().positive("Discount value must be greater than 0."),
     minCart: z.coerce.number().min(0).default(0),
     maxUses: z.preprocess((value) => value || undefined, z.coerce.number().int().positive().optional()),
     endsAt: z.preprocess((value) => value || undefined, z.coerce.date().optional()),
   })
-  .refine(({ type, value }) => type !== "percent" || value <= 100);
+  .refine(
+    ({ type, value }) => type !== "percent" || value <= 100,
+    { message: "Percentage discount cannot exceed 100%.", path: ["value"] }
+  );
 
-export async function createCoupon(_previous: string | null, form: FormData) {
+export async function createCoupon(
+  previousOrForm: string | null | FormData,
+  maybeForm?: FormData
+) {
   const admin = await requireAdmin("admin");
+  const form = maybeForm instanceof FormData ? maybeForm : (previousOrForm as FormData);
 
-  const parsed = couponSchema.safeParse(Object.fromEntries(form));
-  if (!parsed.success) return "Check the code, value and limits.";
+  const raw = Object.fromEntries(form.entries());
+  const parsed = couponSchema.safeParse(raw);
+  if (!parsed.success) {
+    return parsed.error.issues[0]?.message || "Check the code, value and limits.";
+  }
 
   const { code, type, value, minCart, maxUses, endsAt } = parsed.data;
   const inserted = await withDbRetry(async () =>
@@ -42,9 +52,9 @@ export async function createCoupon(_previous: string | null, form: FormData) {
         endsAt,
       })
       .onConflictDoNothing()
-      .returning({ id: coupons.id }),
+      .returning({ id: coupons.id, code: coupons.code }),
   );
-  if (inserted.length === 0) return "That coupon code already exists.";
+  if (inserted.length === 0) return "That coupon code already exists. Please choose another code.";
 
   await logAdminAction(admin, "create", "coupon", inserted[0].id, code);
   revalidatePath("/admin/coupons");
@@ -53,11 +63,16 @@ export async function createCoupon(_previous: string | null, form: FormData) {
 
 export async function toggleCoupon(id: number) {
   const admin = await requireAdmin("admin");
-  await withDbRetry(async () =>
-    db.update(coupons).set({ isActive: not(coupons.isActive) }).where(eq(coupons.id, id)),
+  const [updated] = await withDbRetry(async () =>
+    db
+      .update(coupons)
+      .set({ isActive: not(coupons.isActive) })
+      .where(eq(coupons.id, id))
+      .returning({ id: coupons.id, isActive: coupons.isActive, code: coupons.code }),
   );
   await logAdminAction(admin, "toggle", "coupon", id);
   revalidatePath("/admin/coupons");
+  return updated;
 }
 
 export async function deleteCoupon(id: number) {
@@ -65,4 +80,5 @@ export async function deleteCoupon(id: number) {
   await withDbRetry(async () => db.delete(coupons).where(eq(coupons.id, id)));
   await logAdminAction(admin, "delete", "coupon", id);
   revalidatePath("/admin/coupons");
+  return { success: true };
 }

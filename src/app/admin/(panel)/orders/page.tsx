@@ -1,6 +1,5 @@
+import { OrderFilters } from "@/components/admin/order-filters";
 import { OrderTable } from "@/components/admin/order-table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { requireAdmin } from "@/server/auth/admin-session";
 import { orderStatus } from "@/server/db/schema";
 import { listOrders } from "@/server/services/admin";
@@ -30,38 +29,7 @@ export default async function AdminOrdersPage({
       </div>
 
       {/* Filter / Search Bar */}
-      <form className="flex flex-wrap items-center gap-2.5">
-        <div className="relative flex-1 min-w-[240px] max-w-md">
-          <Input
-            name="q"
-            defaultValue={q}
-            aria-label="Search orders"
-            placeholder="Search by order #, name, email or phone..."
-            className="h-9 w-full rounded-full border border-slate-200/90 bg-white pl-4 pr-9 text-xs shadow-2xs focus:border-[#bef264]"
-          />
-        </div>
-
-        <select
-          name="status"
-          defaultValue={selectedStatus ?? ""}
-          aria-label="Filter by status"
-          className="h-9 rounded-full border border-slate-200/90 bg-white px-4 text-xs font-medium text-slate-700 capitalize shadow-2xs focus:border-[#bef264] focus:outline-none"
-        >
-          <option value="">All Fulfillment Statuses</option>
-          {orderStatus.enumValues.map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </select>
-
-        <Button
-          type="submit"
-          className="h-9 rounded-full bg-[#0B0F19] px-5 text-xs font-semibold text-white shadow-2xs hover:bg-[#1a233a] cursor-pointer"
-        >
-          Filter
-        </Button>
-      </form>
+      <OrderFilters initialQuery={q} initialStatus={selectedStatus ?? ""} />
 
       {/* Orders List Table */}
       <OrderTable rows={orders} />

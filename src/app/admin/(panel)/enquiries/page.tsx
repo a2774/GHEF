@@ -7,6 +7,8 @@ import { changeEnquiryStatus } from "@/server/actions/admin-enquiries";
 import { requireAdmin } from "@/server/auth/admin-session";
 import { enquiryLabels, listEnquiries } from "@/server/services/enquiries";
 
+export const instant = false;
+
 export default async function AdminEnquiriesPage({
   searchParams,
 }: {

@@ -5,6 +5,8 @@ import { CldImage } from "next-cloudinary";
 import { type ChangeEvent, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
+import { toast } from "@/components/ui/sonner";
 import {
   addProductImage,
   getUploadSignature,
@@ -48,13 +50,16 @@ export function ImageManager({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  function run(task: () => Promise<void>) {
+  function run(task: () => Promise<void>, successMessage?: string) {
     setError(null);
     startTransition(async () => {
       try {
         await task();
+        if (successMessage) toast.success(successMessage);
       } catch {
-        setError("That did not work. Check the Cloudinary settings and try again.");
+        const msg = "That did not work. Check the Cloudinary settings and try again.";
+        setError(msg);
+        toast.error(msg);
       }
     });
   }
@@ -64,12 +69,14 @@ export function ImageManager({
     event.target.value = "";
 
     if (files.some((file) => !file.type.startsWith("image/") || file.size > maxFileBytes)) {
-      setError("Choose image files of 10 MB or less.");
+      const msg = "Choose image files of 10 MB or less.";
+      setError(msg);
+      toast.error(msg);
       return;
     }
     run(async () => {
       for (const file of files) await uploadFile(productId, file);
-    });
+    }, "Images uploaded successfully!");
   }
 
   return (
@@ -116,21 +123,37 @@ export function ImageManager({
                   aria-label={image.isPrimary ? "Primary image" : "Set as primary image"}
                   aria-pressed={image.isPrimary}
                   disabled={pending || image.isPrimary}
-                  onClick={() => run(() => setPrimaryImage(productId, image.id))}
-                  className="size-11"
+                  onClick={() =>
+                    run(
+                      () => setPrimaryImage(productId, image.id),
+                      "Set as primary product photo"
+                    )
+                  }
+                  className="size-11 cursor-pointer"
                 >
                   <Star className={image.isPrimary ? "fill-current" : undefined} />
                 </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  aria-label="Delete image"
-                  disabled={pending}
-                  onClick={() => run(() => removeProductImage(productId, image.id))}
-                  className="size-11"
-                >
-                  <Trash2 />
-                </Button>
+
+                <ConfirmDeleteDialog
+                  title="Delete Image?"
+                  description="Are you sure you want to remove this photo from the product gallery?"
+                  confirmText="Delete Image"
+                  successMessage="Product photo deleted"
+                  onConfirm={async () => {
+                    await removeProductImage(productId, image.id);
+                  }}
+                  trigger={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      aria-label="Delete image"
+                      disabled={pending}
+                      className="size-11 cursor-pointer text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                    >
+                      <Trash2 />
+                    </Button>
+                  }
+                />
               </div>
             </li>
           ))}

@@ -4,6 +4,8 @@ import { formatDate } from "@/components/admin/order-table";
 import { requireAdmin } from "@/server/auth/admin-session";
 import { listNewsletterSubscribers } from "@/server/services/newsletter";
 
+export const instant = false;
+
 export default async function AdminSubscribersPage() {
   await requireAdmin("admin");
   const rows = await listNewsletterSubscribers();

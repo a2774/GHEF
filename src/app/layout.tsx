@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Geist_Mono, Inter, Playfair_Display } from "next/font/google";
 import { siteUrl } from "@/lib/site";
+import { Toaster } from "@/components/ui/sonner";
 
 import "./globals.css";
 
@@ -48,7 +49,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en-IN"
       className={`${inter.variable} ${bricolage.variable} ${playfair.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <Toaster />
+      </body>
     </html>
   );
 }

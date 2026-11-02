@@ -4,9 +4,10 @@ import { Suspense } from "react";
 
 import { AccountNav } from "@/components/store/account-nav";
 import { AddressForm } from "@/components/store/address-form";
+import { DeleteAddressButton } from "@/components/store/delete-address-button";
 import { LoginPrompt } from "@/components/store/login-prompt";
 import { Button } from "@/components/ui/button";
-import { deleteAddress, setDefaultAddress } from "@/server/actions/checkout";
+import { setDefaultAddress } from "@/server/actions/checkout";
 import { getCustomerSession } from "@/server/auth/customer-session";
 import { db, withDbRetry } from "@/server/db";
 import { addresses } from "@/server/db/schema";
@@ -54,11 +55,7 @@ async function Addresses() {
                   </Button>
                 </form>
               )}
-              <form action={deleteAddress.bind(null, address.id)}>
-                <Button type="submit" variant="destructive" className="h-10 rounded-full px-4 text-base">
-                  Delete
-                </Button>
-              </form>
+              <DeleteAddressButton id={address.id} addressLine={`${address.house}, ${address.locality}`} />
             </div>
           </li>
         ))}

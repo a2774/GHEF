@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
+import { toast } from "@/components/ui/sonner";
 import { cancelMyOrder, requestOrderReturn } from "@/server/actions/checkout";
 
 export function OrderActions({
@@ -20,27 +22,54 @@ export function OrderActions({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  function cancel() {
-    if (!window.confirm("Cancel this order?")) return;
-    startTransition(async () => {
-      const result = await cancelMyOrder(orderId, orderNumber);
-      setError(result.ok ? null : result.error);
-    });
+  async function handleCancel() {
+    const result = await cancelMyOrder(orderId, orderNumber);
+    if (!result.ok) {
+      setError(result.error);
+      throw new Error(result.error || "Failed to cancel order");
+    }
+    setError(null);
   }
 
   function submitReturn() {
+    if (!reason.trim()) {
+      toast.error("Please provide a reason for return");
+      return;
+    }
     startTransition(async () => {
       const result = await requestOrderReturn(orderId, orderNumber, reason);
-      setError(result.ok ? null : result.error);
+      if (result.ok) {
+        toast.success("Return request submitted successfully");
+        setError(null);
+        setReason("");
+      } else {
+        toast.error(result.error || "Failed to submit return request");
+        setError(result.error);
+      }
     });
   }
 
   return (
     <div className="space-y-3">
       {canCancel && (
-        <Button type="button" variant="destructive" disabled={pending} onClick={cancel} className="h-12 rounded-full px-6 text-base">
-          Cancel order
-        </Button>
+        <ConfirmDeleteDialog
+          title="Cancel Order?"
+          itemName={`Order #${orderNumber}`}
+          description={`Are you sure you want to cancel order #${orderNumber}? A refund will be initiated if payment was already made.`}
+          confirmText="Yes, Cancel Order"
+          successMessage={`Order #${orderNumber} cancelled successfully`}
+          onConfirm={handleCancel}
+          trigger={
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={pending}
+              className="h-12 rounded-full px-6 text-base cursor-pointer"
+            >
+              Cancel order
+            </Button>
+          }
+        />
       )}
       {canReturn && (
         <div className="space-y-2">
@@ -52,7 +81,13 @@ export function OrderActions({
             placeholder="Why would you like to return this?"
             className="w-full rounded-2xl border border-input bg-card p-3 text-base"
           />
-          <Button type="button" variant="outline" disabled={pending} onClick={submitReturn} className="h-12 rounded-full px-6 text-base">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending}
+            onClick={submitReturn}
+            className="h-12 rounded-full px-6 text-base cursor-pointer"
+          >
             Request return
           </Button>
         </div>

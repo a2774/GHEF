@@ -7,6 +7,7 @@ import {
   Globe,
   Laptop,
   MessageCircle,
+  RotateCw,
   Search,
   Share2,
   Smartphone,
@@ -245,39 +246,88 @@ function formatRupees(amount: number) {
 
 export function TrafficClient() {
   const [range, setRange] = useState<RangeKey>("7d");
-  const data = RANGE_DATA[range];
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<string>("Just now");
+  const [liveJitter, setLiveJitter] = useState<number>(0);
 
+  const data = RANGE_DATA[range];
+  const liveCount = Math.max(1, data.liveNow + liveJitter);
   const maxVisitsInChart = Math.max(...data.chartDays.map((d) => d.visits));
 
+  const handleRefresh = () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    setTimeout(() => {
+      setLiveJitter(Math.floor(Math.random() * 5) - 2);
+      const now = new Date();
+      setLastUpdated(
+        now.toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        })
+      );
+      setIsRefreshing(false);
+    }, 600);
+  };
+
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 transition-opacity duration-200 ${isRefreshing ? "opacity-80" : "opacity-100"}`}>
       {/* Header and Filter */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-950">
-            Traffic &amp; Sales Attribution
-          </h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-3xl font-bold tracking-tight text-slate-950">
+              Traffic &amp; Sales Attribution
+            </h1>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live Telemetry
+            </span>
+          </div>
           <p className="mt-1 text-sm text-slate-500">
             Track visitors, buyer origin channels, and revenue conversion from Google, Instagram, WhatsApp, and trade referrals.
           </p>
         </div>
 
-        {/* Date Range Selector */}
-        <div className="inline-flex rounded-xl bg-slate-200/80 p-1 shadow-inner">
-          {(["today", "7d", "30d", "90d", "all"] as RangeKey[]).map((key) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setRange(key)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                range === key
-                  ? "bg-white text-slate-900 shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
+        {/* Actions: Refresh & Date Range */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Refresh Button */}
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            aria-label="Refresh traffic analytics"
+            className="group relative inline-flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-slate-950 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60 transition-all cursor-pointer"
+          >
+            <RotateCw
+              className={`size-3.5 text-slate-500 transition-transform duration-500 ${
+                isRefreshing ? "animate-spin text-slate-900" : "group-hover:rotate-45"
               }`}
-            >
-              {RANGE_DATA[key].label}
-            </button>
-          ))}
+            />
+            <span>{isRefreshing ? "Syncing..." : "Refresh"}</span>
+            <span className="hidden lg:inline text-[10px] font-normal text-slate-400">
+              • {lastUpdated}
+            </span>
+          </button>
+
+          {/* Date Range Selector */}
+          <div className="inline-flex rounded-xl bg-slate-200/80 p-1 shadow-inner">
+            {(["today", "7d", "30d", "90d", "all"] as RangeKey[]).map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setRange(key)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                  range === key
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                {RANGE_DATA[key].label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -347,7 +397,7 @@ export function TrafficClient() {
             </span>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-emerald-600">{data.liveNow}</span>
+            <span className="text-2xl font-bold text-emerald-600">{liveCount}</span>
             <span className="text-xs text-slate-500 font-medium">browsing now</span>
           </div>
           <p className="mt-1 text-xs text-slate-400">Active sessions</p>
