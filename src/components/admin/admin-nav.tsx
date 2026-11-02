@@ -358,22 +358,6 @@ export function AdminNav({
             )}
           </div>
         </div>
-
-        {/* Mode info tag */}
-        <div className="mt-2.5 flex items-center justify-between px-0.5">
-          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
-            {isPro ? "⚡ Pro Suite" : "🌿 Normal View"}
-          </span>
-          <span
-            className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-              isPro
-                ? "bg-amber-400/20 text-amber-300 border border-amber-400/30"
-                : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-            }`}
-          >
-            {isPro ? "All Pages Visible" : "Essential Pages"}
-          </span>
-        </div>
       </div>
 
       {/* Navigation List: Simple Flat Layout (No Accordions, No promo card) */}
