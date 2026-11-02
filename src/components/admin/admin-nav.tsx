@@ -3,14 +3,12 @@
 import {
   Activity,
   Boxes,
-  Compass,
   CreditCard,
   ExternalLink,
   Eye,
   FileText,
   FolderTree,
   Image as ImageIcon,
-  Layers,
   LayoutDashboard,
   LifeBuoy,
   LogOut,
@@ -26,12 +24,10 @@ import {
   ShieldCheck,
   ShoppingBag,
   ShoppingCart,
-  Sparkles,
   Star,
   TicketPercent,
   TrendingUp,
   Users,
-  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -58,19 +54,20 @@ type NavSection = {
   items: NavLink[];
 };
 
-// 🌿 Normal Mode: 8 Core Essentials for daily operations (including Analytics)
+// 🌿 Normal Mode: Only necessary pages for daily operations
 const normalNavItems: NavLink[] = [
   { label: "Dashboard", href: "/admin", role: "staff", icon: LayoutDashboard },
   { label: "Analytics & Traffic", href: "/admin/traffic", role: "staff", icon: TrendingUp },
   { label: "Products", href: "/admin/products", role: "staff", icon: Package },
-  { label: "Inventory & Warehouse", href: "/admin/inventory", role: "staff", icon: Boxes },
-  { label: "Orders & Fulfillment", href: "/admin/orders", role: "staff", icon: ShoppingCart },
-  { label: "Custom Enquiries", href: "/admin/enquiries", role: "staff", icon: MessageSquareText },
-  { label: "Support Desk", href: "/admin/support", role: "staff", icon: LifeBuoy },
-  { label: "Customer Reviews", href: "/admin/reviews", role: "staff", icon: Star },
+  { label: "Categories", href: "/admin/categories", role: "staff", icon: FolderTree },
+  { label: "Inventory", href: "/admin/inventory", role: "staff", icon: Boxes },
+  { label: "Orders", href: "/admin/orders", role: "staff", icon: ShoppingCart },
+  { label: "Customers", href: "/admin/customers", role: "admin", icon: Users },
+  { label: "Enquiries", href: "/admin/enquiries", role: "staff", icon: MessageSquareText },
+  { label: "Reviews", href: "/admin/reviews", role: "staff", icon: Star },
 ];
 
-// ⚡ Pro Mode: Full Enterprise Suite (Simple flat categorized list - No Accordions)
+// ⚡ Pro Mode: All pages and options across full store suite
 const proNavSections: NavSection[] = [
   {
     title: "Overview",
@@ -148,7 +145,7 @@ export function AdminNav({
   onToggleCollapse?: () => void;
 }) {
   const pathname = usePathname();
-  const { setMode, toggleMode, isPro } = useAdminMode();
+  const { isPro } = useAdminMode();
 
   function isActive(href: string) {
     if (href === "/admin") return pathname === "/admin";
@@ -160,7 +157,7 @@ export function AdminNav({
     return (
       <TooltipProvider delayDuration={150}>
         <div className="flex h-full w-full flex-col justify-between overflow-hidden select-none bg-[#0B132B] text-slate-100 items-center py-3">
-          {/* Header with Logo, Mode toggle & Expand button */}
+          {/* Header with Logo & Expand button */}
           <div className="flex flex-col items-center gap-3 shrink-0 pb-3 border-b border-slate-800 w-full px-2">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -174,29 +171,7 @@ export function AdminNav({
               </TooltipTrigger>
               <TooltipContent side="right">
                 <p className="font-bold">Ganga Handmade Export</p>
-                <p className="text-[11px] text-slate-400">Admin Control Center</p>
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Mode Switcher Compact Button at Top Left */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={toggleMode}
-                  aria-label="Toggle admin mode"
-                  className={`flex size-9 items-center justify-center rounded-xl border transition-all cursor-pointer ${
-                    isPro
-                      ? "bg-amber-400/20 border-amber-400/50 text-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.25)]"
-                      : "bg-emerald-500/20 border-emerald-500/50 text-emerald-300"
-                  }`}
-                >
-                  <span className="text-xs select-none">{isPro ? "⚡" : "🌿"}</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p className="font-bold">{isPro ? "Pro Mode Active" : "Normal Mode Active"}</p>
-                <p className="text-[11px] text-slate-400">Click to switch modes</p>
+                <p className="text-[11px] text-slate-400">Admin Panel</p>
               </TooltipContent>
             </Tooltip>
 
@@ -219,14 +194,14 @@ export function AdminNav({
             )}
           </div>
 
-          {/* Compact Navigation Icons */}
+          {/* Compact Navigation Icons (NO DOT) */}
           <nav
             aria-label="Admin Compact Navigation"
             className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-3 space-y-2 no-scrollbar flex flex-col items-center w-full px-2"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
             {isPro ? (
-              // Pro Mode: Flat sequence of categorized icons
+              // Pro Mode: All pages icons
               proNavSections.map((section) => {
                 const accessibleItems = section.items.filter((item) =>
                   hasRole(admin, item.role)
@@ -252,9 +227,6 @@ export function AdminNav({
                               }`}
                             >
                               <Icon className="size-4.5 shrink-0" />
-                              {active && (
-                                <span className="absolute -left-1 size-1.5 rounded-full bg-[#bef264] shadow-[0_0_6px_#bef264]" />
-                              )}
                             </Link>
                           </TooltipTrigger>
                           <TooltipContent side="right">
@@ -270,7 +242,7 @@ export function AdminNav({
                 );
               })
             ) : (
-              // Normal Mode: 8 Core Essentials icons
+              // Normal Mode: Necessary pages icons only
               <div className="space-y-1.5 w-full flex flex-col items-center">
                 {normalNavItems
                   .filter((item) => hasRole(admin, item.role))
@@ -291,9 +263,6 @@ export function AdminNav({
                             }`}
                           >
                             <Icon className="size-4.5 shrink-0" />
-                            {active && (
-                              <span className="absolute -left-1 size-1.5 rounded-full bg-[#bef264] shadow-[0_0_6px_#bef264]" />
-                            )}
                           </Link>
                         </TooltipTrigger>
                         <TooltipContent side="right">
@@ -350,8 +319,8 @@ export function AdminNav({
   // 2. Full Expanded Sidebar Mode
   return (
     <div className="flex h-full w-full flex-col justify-between overflow-hidden select-none bg-[#0B132B] text-slate-100">
-      {/* Top Header: Brand Identity + Top-Left Mode Switcher */}
-      <div className="shrink-0 p-3.5 pb-3 border-b border-slate-800/80 bg-slate-950/30">
+      {/* Brand Header */}
+      <div className="shrink-0 p-4 pb-3.5 border-b border-slate-800/80 bg-slate-950/30">
         <div className="flex items-center justify-between gap-2.5">
           <Link
             href="/admin"
@@ -390,37 +359,10 @@ export function AdminNav({
           </div>
         </div>
 
-        {/* Top-Left Mode Switcher Pill */}
-        <div className="mt-3 flex items-center rounded-xl bg-slate-900/95 p-1 border border-slate-800 shadow-inner">
-          <button
-            type="button"
-            onClick={() => setMode("normal")}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              !isPro
-                ? "bg-[#bef264] text-slate-950 font-bold shadow-xs scale-[1.01]"
-                : "text-slate-400 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            <span className="text-xs">🌿</span>
-            <span>Normal</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("pro")}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              isPro
-                ? "bg-[#bef264] text-slate-950 font-bold shadow-xs scale-[1.01]"
-                : "text-slate-400 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            <span className="text-xs">⚡</span>
-            <span>Pro</span>
-          </button>
-        </div>
-
-        <div className="mt-1.5 flex items-center justify-between px-1">
+        {/* Mode info tag */}
+        <div className="mt-2.5 flex items-center justify-between px-0.5">
           <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
-            {isPro ? "Enterprise Suite" : "Daily Operations"}
+            {isPro ? "⚡ Pro Suite" : "🌿 Normal View"}
           </span>
           <span
             className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
@@ -429,18 +371,18 @@ export function AdminNav({
                 : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
             }`}
           >
-            {isPro ? "All Tools Active" : "8 Essentials"}
+            {isPro ? "All Pages Visible" : "Essential Pages"}
           </span>
         </div>
       </div>
 
-      {/* Navigation List: Simple Flat Layout (No Accordions) */}
+      {/* Navigation List: Simple Flat Layout (No Accordions, No promo card) */}
       <div className="flex-1 min-h-0 flex flex-col">
         {!isPro ? (
-          /* Normal Mode: Clean Flat List of Core Essentials */
+          /* Normal Mode: Clean Flat List of Necessary Pages Only */
           <div className="flex-1 min-h-0 flex flex-col">
             <div className="px-4 pt-3 pb-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-              Core Operations
+              Operations
             </div>
 
             <nav
@@ -481,31 +423,10 @@ export function AdminNav({
                     </Link>
                   );
                 })}
-
-              {/* Pro Mode Unlock Prompt Card */}
-              <div className="pt-3 px-1">
-                <div className="rounded-xl border border-slate-800 bg-gradient-to-b from-white/[0.04] to-transparent p-3 text-slate-300 text-xs">
-                  <div className="flex items-center gap-1.5 text-white font-bold mb-1">
-                    <Sparkles className="size-3.5 text-[#bef264]" />
-                    <span>Need Enterprise Modules?</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed mb-2.5">
-                    Switch to Pro mode to access Abandoned Carts, Gateway Ledgers, Coupons & Audit Trails.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setMode("pro")}
-                    className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-white/10 hover:bg-[#bef264] hover:text-slate-950 py-1.5 text-[11px] font-bold text-white transition-all cursor-pointer"
-                  >
-                    <Zap className="size-3 fill-current" />
-                    <span>Switch to Pro Mode</span>
-                  </button>
-                </div>
-              </div>
             </nav>
           </div>
         ) : (
-          /* Pro Mode: Simple Flat Categorized List (NO Accordions) */
+          /* Pro Mode: Simple Flat Categorized List (All Pages Visible) */
           <div className="flex-1 min-h-0 flex flex-col">
             <nav
               aria-label="Admin Navigation"
@@ -520,12 +441,10 @@ export function AdminNav({
 
                 return (
                   <div key={section.title} className="space-y-1">
-                    {/* Clean Section Heading */}
                     <div className="px-3 pt-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                       {section.title}
                     </div>
 
-                    {/* Direct Flat Links */}
                     <div className="space-y-0.5">
                       {accessibleItems.map((item) => {
                         const active = isActive(item.href);

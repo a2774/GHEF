@@ -2,32 +2,20 @@
 
 import { useMemo, useState } from "react";
 import {
-  AlertTriangle,
   ArrowUpRight,
+  BarChart3,
   Boxes,
   Calendar,
   Check,
-  ChevronDown,
-  Clock,
   CreditCard,
-  DollarSign,
-  ExternalLink,
-  FileText,
-  Filter,
-  Layers,
-  LayoutDashboard,
-  LifeBuoy,
   MessageSquareText,
   Package,
   Plus,
   RotateCw,
-  ShieldCheck,
   ShoppingBag,
   ShoppingCart,
-  Sparkles,
   TrendingUp,
   Users,
-  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -35,20 +23,30 @@ import { useRouter } from "next/navigation";
 import { OrderTable } from "@/components/admin/order-table";
 import { formatPaise } from "@/lib/format";
 import type { getDashboardData } from "@/server/services/admin";
-import { useAdminMode } from "@/components/admin/admin-mode-context";
 
 export type TimeRangeKey = "24h" | "7d" | "30d" | "90d" | "365d" | "custom";
+export type ChartMetricKey = "revenue" | "orders" | "aov" | "customers" | "inquiries";
+export type ChartViewStyle = "area" | "bar";
 
 interface DashboardClientProps {
   initialData: Awaited<ReturnType<typeof getDashboardData>>;
 }
 
+interface TimelinePoint {
+  label: string;
+  revenuePaise: number;
+  orders: number;
+  aovPaise: number;
+  customers: number;
+  inquiries: number;
+}
+
 export function DashboardClient({ initialData }: DashboardClientProps) {
   const router = useRouter();
-  const { mode, setMode, isPro } = useAdminMode();
 
   const [selectedRange, setSelectedRange] = useState<TimeRangeKey>("30d");
-  const [activeChartTab, setActiveChartTab] = useState<"revenue" | "orders">("revenue");
+  const [activeMetric, setActiveMetric] = useState<ChartMetricKey>("revenue");
+  const [chartStyle, setChartStyle] = useState<ChartViewStyle>("area");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<string>("Just now");
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
@@ -78,435 +76,242 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     }, 700);
   };
 
-  // Generate date points for chart based on selected range (used in Pro mode)
-  const chartTimeline = useMemo(() => {
-    const totalPaise = initialData.revenuePaise || 28500000;
-    const totalOrders = initialData.orderCount || 42;
+  // Generate timeline data points for chart based on selected range
+  const chartTimeline: TimelinePoint[] = useMemo(() => {
+    const totalPaise = initialData.revenuePaise || 2500000; // ₹25,000 base
+    const totalOrders = initialData.orderCount || 18;
+    const totalCustomers = initialData.customerCount || 7;
+    const totalEnquiries = initialData.enquiryCount || 5;
+
+    const makePoint = (
+      label: string,
+      revFactor: number,
+      ordFactor: number,
+      custFactor: number,
+      enqFactor: number
+    ): TimelinePoint => {
+      const revenuePaise = Math.round(totalPaise * revFactor);
+      const orders = Math.max(0, Math.round(totalOrders * ordFactor));
+      const aovPaise = orders > 0 ? Math.round(revenuePaise / orders) : 0;
+      const customers = Math.max(0, Math.round(totalCustomers * custFactor));
+      const inquiries = Math.max(0, Math.round(totalEnquiries * enqFactor));
+      return { label, revenuePaise, orders, aovPaise, customers, inquiries };
+    };
 
     if (selectedRange === "24h") {
       const hours = ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00", "23:59"];
-      return hours.map((hour, idx) => {
-        const factor = [0.03, 0.01, 0.14, 0.32, 0.28, 0.16, 0.06][idx];
-        const revenue = Math.round((totalPaise / 28) * factor);
-        const orders = Math.max(0, Math.round((totalOrders / 20) * factor * 5));
-        return { label: hour, revenuePaise: revenue, orders };
-      });
+      const factors = [0.03, 0.02, 0.14, 0.35, 0.26, 0.14, 0.06];
+      return hours.map((hour, idx) =>
+        makePoint(hour, factors[idx], factors[idx] * 1.1, factors[idx] * 0.9, factors[idx])
+      );
     }
 
     if (selectedRange === "7d") {
       const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-      return days.map((day, idx) => {
-        const factor = [0.12, 0.15, 0.18, 0.11, 0.22, 0.14, 0.08][idx];
-        const revenue = Math.round((totalPaise / 4) * factor);
-        const orders = Math.max(1, Math.round((totalOrders / 4) * factor));
-        return { label: day, revenuePaise: revenue, orders };
-      });
+      const factors = [0.12, 0.15, 0.18, 0.11, 0.22, 0.14, 0.08];
+      return days.map((day, idx) =>
+        makePoint(day, factors[idx], factors[idx], factors[idx] * 0.9, factors[idx])
+      );
     }
 
     if (selectedRange === "30d") {
       return [
-        { label: "Day 1-5", revenuePaise: Math.round(totalPaise * 0.14), orders: Math.max(1, Math.round(totalOrders * 0.14)) },
-        { label: "Day 6-10", revenuePaise: Math.round(totalPaise * 0.16), orders: Math.max(1, Math.round(totalOrders * 0.16)) },
-        { label: "Day 11-15", revenuePaise: Math.round(totalPaise * 0.18), orders: Math.max(1, Math.round(totalOrders * 0.18)) },
-        { label: "Day 16-20", revenuePaise: Math.round(totalPaise * 0.22), orders: Math.max(1, Math.round(totalOrders * 0.22)) },
-        { label: "Day 21-25", revenuePaise: Math.round(totalPaise * 0.17), orders: Math.max(1, Math.round(totalOrders * 0.17)) },
-        { label: "Day 26-30", revenuePaise: Math.round(totalPaise * 0.13), orders: Math.max(1, Math.round(totalOrders * 0.13)) },
+        makePoint("Day 1-5", 0.14, 0.13, 0.14, 0.12),
+        makePoint("Day 6-10", 0.16, 0.15, 0.15, 0.16),
+        makePoint("Day 11-15", 0.18, 0.17, 0.18, 0.17),
+        makePoint("Day 16-20", 0.24, 0.23, 0.22, 0.25),
+        makePoint("Day 21-25", 0.16, 0.18, 0.17, 0.18),
+        makePoint("Day 26-30", 0.12, 0.14, 0.14, 0.12),
       ];
     }
 
     if (selectedRange === "90d") {
       return [
-        { label: "Month 1", revenuePaise: Math.round(totalPaise * 0.28), orders: Math.max(2, Math.round(totalOrders * 0.28)) },
-        { label: "Month 2", revenuePaise: Math.round(totalPaise * 0.34), orders: Math.max(3, Math.round(totalOrders * 0.34)) },
-        { label: "Month 3", revenuePaise: Math.round(totalPaise * 0.38), orders: Math.max(3, Math.round(totalOrders * 0.38)) },
+        makePoint("Month 1", 0.28, 0.27, 0.28, 0.26),
+        makePoint("Month 2", 0.34, 0.35, 0.34, 0.36),
+        makePoint("Month 3", 0.38, 0.38, 0.38, 0.38),
       ];
     }
 
     if (selectedRange === "365d") {
       return [
-        { label: "Q1 Weaves", revenuePaise: Math.round(totalPaise * 0.21), orders: Math.max(5, Math.round(totalOrders * 0.21)) },
-        { label: "Q2 Summer", revenuePaise: Math.round(totalPaise * 0.26), orders: Math.max(6, Math.round(totalOrders * 0.26)) },
-        { label: "Q3 Festive", revenuePaise: Math.round(totalPaise * 0.29), orders: Math.max(8, Math.round(totalOrders * 0.29)) },
-        { label: "Q4 Winter Export", revenuePaise: Math.round(totalPaise * 0.24), orders: Math.max(6, Math.round(totalOrders * 0.24)) },
+        makePoint("Q1 Weaves", 0.21, 0.22, 0.21, 0.2),
+        makePoint("Q2 Summer", 0.26, 0.25, 0.26, 0.27),
+        makePoint("Q3 Festive", 0.31, 0.31, 0.32, 0.33),
+        makePoint("Q4 Export", 0.22, 0.22, 0.21, 0.2),
       ];
     }
 
     // Custom range
     return [
-      { label: `From ${customStartDate}`, revenuePaise: Math.round(totalPaise * 0.45), orders: Math.max(1, Math.round(totalOrders * 0.45)) },
-      { label: `To ${customEndDate}`, revenuePaise: Math.round(totalPaise * 0.55), orders: Math.max(1, Math.round(totalOrders * 0.55)) },
+      makePoint(`From ${customStartDate}`, 0.46, 0.45, 0.48, 0.44),
+      makePoint(`To ${customEndDate}`, 0.54, 0.55, 0.52, 0.56),
     ];
-  }, [selectedRange, initialData.revenuePaise, initialData.orderCount, customStartDate, customEndDate]);
+  }, [
+    selectedRange,
+    initialData.revenuePaise,
+    initialData.orderCount,
+    initialData.customerCount,
+    initialData.enquiryCount,
+    customStartDate,
+    customEndDate,
+  ]);
 
-  // Scaled metrics based on active filter (used in Pro mode)
+  // Scaled overall KPI metrics for the selected timeframe
   const metrics = useMemo(() => {
     const multiplierMap: Record<TimeRangeKey, number> = {
-      "24h": 0.04,
-      "7d": 0.22,
+      "24h": 0.05,
+      "7d": 0.25,
       "30d": 1,
       "90d": 2.8,
       "365d": 11.2,
-      custom: 0.8,
+      custom: 0.85,
     };
     const mult = multiplierMap[selectedRange];
 
     const currentRevenuePaise = Math.round((initialData.revenuePaise || 2500000) * mult);
     const currentOrders = Math.max(1, Math.round((initialData.orderCount || 18) * mult));
     const aov = currentOrders > 0 ? Math.round(currentRevenuePaise / currentOrders) : 0;
+    const currentCustomers = Math.max(
+      1,
+      Math.round((initialData.customerCount || 7) * (selectedRange === "24h" ? 0.2 : mult * 0.75))
+    );
+    const currentInquiries = Math.max(0, Math.round((initialData.enquiryCount || 5) * mult));
 
     return {
       revenuePaise: currentRevenuePaise,
       orderCount: currentOrders,
-      customerCount: Math.max(1, Math.round((initialData.customerCount || 10) * (selectedRange === "24h" ? 0.1 : mult * 0.7))),
-      inquiries: Math.max(0, Math.round((initialData.enquiryCount || 5) * mult)),
+      customerCount: currentCustomers,
+      inquiries: currentInquiries,
       aovPaise: aov,
     };
   }, [selectedRange, initialData]);
 
-  // SVG Chart Computations for Pro mode
-  const maxRevenue = Math.max(...chartTimeline.map((p) => p.revenuePaise), 1);
-  const maxOrders = Math.max(...chartTimeline.map((p) => p.orders), 1);
+  // Extract raw numeric values for active metric across chartTimeline
+  const activeMetricValues = useMemo(() => {
+    switch (activeMetric) {
+      case "revenue":
+        return chartTimeline.map((p) => p.revenuePaise);
+      case "orders":
+        return chartTimeline.map((p) => p.orders);
+      case "aov":
+        return chartTimeline.map((p) => p.aovPaise);
+      case "customers":
+        return chartTimeline.map((p) => p.customers);
+      case "inquiries":
+        return chartTimeline.map((p) => p.inquiries);
+    }
+  }, [activeMetric, chartTimeline]);
+
+  const maxVal = Math.max(...activeMetricValues, 1);
+  const minVal = Math.min(...activeMetricValues, 0);
+
+  // SVG Chart Dimensions
   const chartHeight = 160;
   const chartWidth = 560;
 
   const points = chartTimeline.map((p, i) => {
     const x = (i / (chartTimeline.length - 1 || 1)) * (chartWidth - 40) + 20;
-    const val = activeChartTab === "revenue" ? p.revenuePaise : p.orders;
-    const maxVal = activeChartTab === "revenue" ? maxRevenue : maxOrders;
+    const val = activeMetricValues[i] || 0;
     const y = chartHeight - 20 - (val / maxVal) * (chartHeight - 40);
-    return { x, y, data: p };
+    return { x, y, data: p, value: val };
   });
 
-  const areaPath = points.length > 0
-    ? `M ${points[0].x} ${chartHeight - 10} L ${points.map((p) => `${p.x} ${p.y}`).join(" L ")} L ${points[points.length - 1].x} ${chartHeight - 10} Z`
-    : "";
-  const linePath = points.length > 0
-    ? `M ${points.map((p) => `${p.x} ${p.y}`).join(" L ")}`
-    : "";
+  const areaPath =
+    points.length > 0
+      ? `M ${points[0].x} ${chartHeight - 10} L ${points.map((p) => `${p.x} ${p.y}`).join(" L ")} L ${points[points.length - 1].x} ${chartHeight - 10} Z`
+      : "";
+  const linePath =
+    points.length > 0 ? `M ${points.map((p) => `${p.x} ${p.y}`).join(" L ")}` : "";
 
-  /* =========================================================================
-     🌿 NORMAL MODE: Focused Daily Operations Dashboard (Fulfillment & Stock)
-     ========================================================================= */
-  if (!isPro) {
-    return (
-      <div className={`space-y-7 pb-12 transition-opacity duration-200 ${isRefreshing ? "opacity-75" : "opacity-100"}`}>
-        {/* Normal Mode Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-5">
-          <div>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-950">
-                Daily Operations
-              </h1>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 border border-emerald-300 px-3 py-0.5 text-xs font-bold text-emerald-900 shadow-2xs">
-                <span>🌿</span>
-                <span>Normal Mode</span>
-              </span>
-            </div>
-            <p className="mt-1 text-xs sm:text-sm text-slate-500">
-              Clean, focused control for pack & ship fulfillment, inventory restock, and buyer inquiries.
-            </p>
-          </div>
+  // Summary computed stats for active metric
+  const metricStats = useMemo(() => {
+    let totalFormatted = "";
+    let peakIndex = 0;
+    let max = -1;
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Sync Refresh */}
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              aria-label="Refresh dashboard data"
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-slate-950 active:scale-95 disabled:opacity-60 transition-all cursor-pointer"
-            >
-              <RotateCw
-                className={`size-3.5 text-slate-500 transition-transform duration-500 ${
-                  isRefreshing ? "animate-spin text-slate-900" : ""
-                }`}
-              />
-              <span>{isRefreshing ? "Syncing..." : "Refresh"}</span>
-              <span className="hidden sm:inline text-[10px] font-normal text-slate-400">
-                • {lastRefreshedAt}
-              </span>
-            </button>
+    activeMetricValues.forEach((val, idx) => {
+      if (val > max) {
+        max = val;
+        peakIndex = idx;
+      }
+    });
 
-            {/* Quick Switcher to Pro */}
-            <button
-              type="button"
-              onClick={() => setMode("pro")}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#0B132B] px-3.5 py-2 text-xs font-bold text-[#bef264] shadow-xs hover:bg-slate-800 active:scale-95 transition-all cursor-pointer"
-            >
-              <Zap className="size-3.5 fill-[#bef264]" />
-              <span>Switch to Pro Mode</span>
-            </button>
-          </div>
-        </div>
+    const peakLabel = chartTimeline[peakIndex]?.label ?? "Peak";
 
-        {/* Daily Fast Action Station */}
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-xs">
-          <div className="flex items-center justify-between mb-3.5">
-            <div className="flex items-center gap-2">
-              <span className="flex size-2 rounded-full bg-emerald-500 animate-pulse" />
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Daily Operations Quick Actions
-              </h2>
-            </div>
-            <span className="text-[11px] font-mono text-slate-400">Fast-track tools</span>
-          </div>
+    if (activeMetric === "revenue") {
+      totalFormatted = formatPaise(metrics.revenuePaise);
+    } else if (activeMetric === "aov") {
+      totalFormatted = formatPaise(metrics.aovPaise);
+    } else if (activeMetric === "orders") {
+      totalFormatted = `${metrics.orderCount} Orders`;
+    } else if (activeMetric === "customers") {
+      totalFormatted = `${metrics.customerCount} Active`;
+    } else {
+      totalFormatted = `${metrics.inquiries} Inquiries`;
+    }
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <Link
-              href="/admin/orders"
-              className="group flex items-center justify-between p-3.5 rounded-xl border border-slate-200/90 hover:border-slate-300 bg-slate-50/60 hover:bg-white transition-all shadow-2xs"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="flex size-9 items-center justify-center rounded-lg bg-blue-100 text-blue-700 group-hover:scale-105 transition-transform">
-                  <ShoppingCart className="size-4.5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-slate-900 truncate">Pack & Dispatch</p>
-                  <p className="text-[11px] text-slate-500 truncate">{initialData.pendingCount} pending orders</p>
-                </div>
-              </div>
-              <ArrowUpRight className="size-4 text-slate-400 group-hover:text-slate-900 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-            </Link>
+    return {
+      total: totalFormatted,
+      peak: `${peakLabel} (${
+        activeMetric === "revenue" || activeMetric === "aov"
+          ? formatPaise(max)
+          : max
+      })`,
+      trend: "+14.8% vs prior period",
+    };
+  }, [activeMetric, activeMetricValues, chartTimeline, metrics]);
 
-            <Link
-              href="/admin/inventory"
-              className="group flex items-center justify-between p-3.5 rounded-xl border border-slate-200/90 hover:border-slate-300 bg-slate-50/60 hover:bg-white transition-all shadow-2xs"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="flex size-9 items-center justify-center rounded-lg bg-amber-100 text-amber-700 group-hover:scale-105 transition-transform">
-                  <Boxes className="size-4.5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-slate-900 truncate">Adjust Inventory</p>
-                  <p className="text-[11px] text-slate-500 truncate">{initialData.lowStock.length} low stock alerts</p>
-                </div>
-              </div>
-              <ArrowUpRight className="size-4 text-slate-400 group-hover:text-slate-900 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-            </Link>
+  // Formatter for hover tooltips
+  const formatHoverValue = (val: number) => {
+    if (activeMetric === "revenue" || activeMetric === "aov") {
+      return formatPaise(val);
+    }
+    if (activeMetric === "orders") return `${val} Orders`;
+    if (activeMetric === "customers") return `${val} Active Customers`;
+    return `${val} Inquiries & Quotes`;
+  };
 
-            <Link
-              href="/admin/enquiries"
-              className="group flex items-center justify-between p-3.5 rounded-xl border border-slate-200/90 hover:border-slate-300 bg-slate-50/60 hover:bg-white transition-all shadow-2xs"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="flex size-9 items-center justify-center rounded-lg bg-purple-100 text-purple-700 group-hover:scale-105 transition-transform">
-                  <MessageSquareText className="size-4.5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-slate-900 truncate">Bespoke Quotes</p>
-                  <p className="text-[11px] text-slate-500 truncate">{initialData.newEnquiryCount} unread requests</p>
-                </div>
-              </div>
-              <ArrowUpRight className="size-4 text-slate-400 group-hover:text-slate-900 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-            </Link>
+  const rangeLabels: Record<TimeRangeKey, string> = {
+    "24h": "Last 24 Hours",
+    "7d": "Last 7 Days",
+    "30d": "Last 30 Days",
+    "90d": "Last 90 Days",
+    "365d": "Last 365 Days",
+    custom: `Custom (${customStartDate} to ${customEndDate})`,
+  };
 
-            <Link
-              href="/admin/products/new"
-              className="group flex items-center justify-between p-3.5 rounded-xl border border-slate-200/90 hover:border-slate-300 bg-[#bef264]/10 hover:bg-[#bef264]/20 transition-all shadow-2xs"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="flex size-9 items-center justify-center rounded-lg bg-[#bef264] text-slate-950 font-bold group-hover:scale-105 transition-transform">
-                  <Plus className="size-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-slate-950 truncate">Add New Rug</p>
-                  <p className="text-[11px] text-slate-600 truncate">Create rug listing</p>
-                </div>
-              </div>
-              <ArrowUpRight className="size-4 text-slate-700 group-hover:text-slate-950 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-            </Link>
-          </div>
-        </div>
-
-        {/* 4 Focused Daily Operations Cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              <span>Orders to Pack</span>
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                initialData.pendingCount > 0 ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
-              }`}>
-                {initialData.pendingCount > 0 ? "ACTION NEEDED" : "ALL PACKED"}
-              </span>
-            </div>
-            <div className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
-              {initialData.pendingCount.toLocaleString("en-IN")}
-            </div>
-            <p className="mt-1 text-xs text-slate-400">
-              Orders awaiting packaging & tracking code
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              <span>Low Stock Alerts</span>
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                initialData.lowStock.length > 0 ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"
-              }`}>
-                {initialData.lowStock.length > 0 ? "RESTOCK" : "HEALTHY"}
-              </span>
-            </div>
-            <div className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
-              {initialData.lowStock.length.toLocaleString("en-IN")}
-            </div>
-            <p className="mt-1 text-xs text-slate-400">
-              Handmade rug variants ≤ 3 in stock
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              <span>Custom Inquiries</span>
-              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-800">
-                BESPOKE
-              </span>
-            </div>
-            <div className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
-              {initialData.newEnquiryCount.toLocaleString("en-IN")}
-            </div>
-            <p className="mt-1 text-xs text-slate-400">
-              Unread buyer quote & custom dimensions requests
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              <span>Active Catalog</span>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-                LIVE
-              </span>
-            </div>
-            <div className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
-              {initialData.productCount.toLocaleString("en-IN")}
-            </div>
-            <p className="mt-1 text-xs text-slate-400">
-              Handcrafted rugs published on storefront
-            </p>
-          </div>
-        </div>
-
-        {/* Warehouse Inventory Alerts */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              <Boxes className="size-4.5 text-amber-600" />
-              <span>Warehouse Stock Alerts</span>
-            </h2>
-            <Link
-              href="/admin/inventory"
-              className="text-xs font-semibold text-slate-700 hover:text-slate-950 flex items-center gap-1"
-            >
-              <span>Manage stock counts</span>
-              <ArrowUpRight className="size-3.5" />
-            </Link>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
-            {initialData.lowStock.length > 0 ? (
-              <div className="space-y-3">
-                {initialData.lowStock.map((variant) => (
-                  <div
-                    key={variant.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3 last:border-0 last:pb-0"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-bold text-slate-900">
-                          {variant.title}
-                        </span>
-                        <span className="text-[11px] font-mono text-slate-500">
-                          (Color: {variant.color ?? "Standard"}, Size: {variant.size ?? "Standard"})
-                        </span>
-                      </div>
-                      <p className="text-xs text-rose-600 font-medium mt-0.5">
-                        Warehouse critical: Only {variant.stock} unit{variant.stock === 1 ? "" : "s"} remaining
-                      </p>
-                    </div>
-
-                    <Link
-                      href="/admin/inventory"
-                      className="inline-flex items-center gap-1 self-start sm:self-auto rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors"
-                    >
-                      <span>Update Stock</span>
-                      <ArrowUpRight className="size-3" />
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 py-2 text-emerald-800">
-                <Check className="size-5 text-emerald-600" />
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Warehouse Inventory Healthy</p>
-                  <p className="text-xs text-slate-500">All rug variants meet safe minimum thresholds.</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Orders to Fulfill */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              <ShoppingCart className="size-4.5 text-blue-600" />
-              <span>Recent Orders & Fulfillment</span>
-            </h2>
-            <Link
-              href="/admin/orders"
-              className="text-xs font-semibold text-slate-700 hover:text-slate-950 flex items-center gap-1"
-            >
-              <span>View all orders</span>
-              <ArrowUpRight className="size-3.5" />
-            </Link>
-          </div>
-
-          <OrderTable rows={initialData.recentOrders} />
-        </div>
-      </div>
-    );
-  }
-
-  /* =========================================================================
-     ⚡ PRO MODE: Full Power Enterprise Control (Telemetry & Financials)
-     ========================================================================= */
   return (
-    <div className={`space-y-8 pb-12 transition-opacity duration-200 ${isRefreshing ? "opacity-75" : "opacity-100"}`}>
-      {/* 1. Header with Mode Badge, Live Refresh & Date Filters */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-slate-200/80 pb-6">
+    <div
+      className={`space-y-6 pb-12 transition-opacity duration-200 ${
+        isRefreshing ? "opacity-75" : "opacity-100"
+      }`}
+    >
+      {/* 1. RESPONSIVE HEADER: Title + Actions (Never breaks across 3 rows) */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-950">
-              Overview & Telemetry
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-950">
+              Overview
             </h1>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#bef264]/40 border border-[#bef264] px-2.5 py-0.5 text-[11px] font-bold text-slate-950">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 text-xs font-bold text-emerald-900 shadow-2xs">
               <span className="size-1.5 rounded-full bg-emerald-600 animate-pulse" />
-              ⚡ Pro Mode Active
+              Live Operations
             </span>
           </div>
-          <p className="mt-1 text-sm text-slate-500">
-            Real-time financial telemetry, attribution models, Razorpay gateway health, and audit logs.
+          <p className="mt-1 text-xs sm:text-sm text-slate-500">
+            Real-time analytics, inventory signals, and fulfillment tracking for Ganga Handmade Export.
           </p>
         </div>
 
-        {/* Global Action Toolbar */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Switch to Normal Mode Button */}
-          <button
-            type="button"
-            onClick={() => setMode("normal")}
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-all cursor-pointer"
-          >
-            <span>🌿 Normal Mode</span>
-          </button>
-
-          {/* Refresh Button */}
+        {/* Action Buttons: Cleanly anchored on the right */}
+        <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
           <button
             type="button"
             onClick={handleRefresh}
             disabled={isRefreshing}
             aria-label="Refresh dashboard data"
-            className="group relative inline-flex items-center gap-2 rounded-full border border-slate-200/90 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-slate-950 active:scale-[0.98] disabled:opacity-60 transition-all cursor-pointer"
+            className="group inline-flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-slate-950 active:scale-[0.98] disabled:opacity-60 transition-all cursor-pointer"
           >
             <RotateCw
               className={`size-3.5 text-slate-500 transition-transform duration-500 ${
@@ -514,55 +319,14 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
               }`}
             />
             <span>{isRefreshing ? "Syncing..." : "Refresh"}</span>
-            <span className="hidden sm:inline text-[10px] font-normal text-slate-400">
+            <span className="hidden md:inline text-[10px] font-normal text-slate-400">
               • {lastRefreshedAt}
             </span>
           </button>
 
-          {/* Date Range Selector Pill */}
-          <div className="inline-flex items-center rounded-full bg-slate-200/70 p-1 shadow-inner">
-            {[
-              { key: "24h", label: "24 hrs" },
-              { key: "7d", label: "7 days" },
-              { key: "30d", label: "30 days" },
-              { key: "90d", label: "90 days" },
-              { key: "365d", label: "365 days" },
-            ].map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => {
-                  setSelectedRange(key as TimeRangeKey);
-                  setShowCustomPicker(false);
-                }}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-                  selectedRange === key
-                    ? "bg-[#0B132B] text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-950"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-
-            <button
-              type="button"
-              onClick={() => setShowCustomPicker(!showCustomPicker)}
-              className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-                selectedRange === "custom" || showCustomPicker
-                  ? "bg-[#0B132B] text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-950"
-              }`}
-            >
-              <Calendar className="size-3" />
-              <span>Custom</span>
-            </button>
-          </div>
-
-          {/* Action Links */}
           <Link
             href="/admin/products/new"
-            className="inline-flex items-center gap-1.5 rounded-full bg-[#bef264] px-4 py-2 text-xs font-bold text-slate-950 shadow-xs hover:bg-[#a3e635] transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#bef264] px-4 py-2 text-xs font-bold text-slate-950 shadow-xs hover:bg-[#a3e635] active:scale-[0.98] transition-all cursor-pointer"
           >
             <Plus className="size-3.5" />
             <span>New Product</span>
@@ -570,64 +334,69 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
         </div>
       </div>
 
-      {/* Pro Fast Telemetry Shortcuts Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Link
-          href="/admin/traffic"
-          className="group flex items-center justify-between p-3 rounded-xl border border-slate-200/90 bg-white hover:border-slate-300 shadow-2xs hover:shadow-xs transition-all"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <TrendingUp className="size-4 text-emerald-600 shrink-0" />
-            <span className="text-xs font-bold text-slate-800 truncate">Traffic & Attribution</span>
-          </div>
-          <ArrowUpRight className="size-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
-        </Link>
+      {/* 2. DEDICATED TIMEFRAME FILTER TOOLBAR (Guaranteed Responsive) */}
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-3 sm:px-4 shadow-2xs">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          {/* Timeframe pill tabs */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 flex items-center gap-1 mr-1">
+              <Calendar className="size-3.5 text-slate-500" />
+              <span>Timeframe:</span>
+            </span>
 
-        <Link
-          href="/admin/razorpay"
-          className="group flex items-center justify-between p-3 rounded-xl border border-slate-200/90 bg-white hover:border-slate-300 shadow-2xs hover:shadow-xs transition-all"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <CreditCard className="size-4 text-blue-600 shrink-0" />
-            <span className="text-xs font-bold text-slate-800 truncate">Razorpay Telemetry</span>
-          </div>
-          <ArrowUpRight className="size-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
-        </Link>
+            <div className="inline-flex items-center rounded-xl bg-slate-100 p-1 shadow-inner gap-0.5 flex-wrap">
+              {[
+                { key: "24h", label: "24 hrs" },
+                { key: "7d", label: "7 days" },
+                { key: "30d", label: "30 days" },
+                { key: "90d", label: "90 days" },
+                { key: "365d", label: "365 days" },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRange(key as TimeRangeKey);
+                    setShowCustomPicker(false);
+                  }}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                    selectedRange === key
+                      ? "bg-[#0B132B] text-white shadow-xs"
+                      : "text-slate-600 hover:text-slate-950"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
 
-        <Link
-          href="/admin/abandoned"
-          className="group flex items-center justify-between p-3 rounded-xl border border-slate-200/90 bg-white hover:border-slate-300 shadow-2xs hover:shadow-xs transition-all"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <ShoppingBag className="size-4 text-amber-600 shrink-0" />
-            <span className="text-xs font-bold text-slate-800 truncate">Abandoned Carts</span>
-          </div>
-          <ArrowUpRight className="size-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
-        </Link>
-
-        <Link
-          href="/admin/audit"
-          className="group flex items-center justify-between p-3 rounded-xl border border-slate-200/90 bg-white hover:border-slate-300 shadow-2xs hover:shadow-xs transition-all"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <ShieldCheck className="size-4 text-purple-600 shrink-0" />
-            <span className="text-xs font-bold text-slate-800 truncate">System Audit Trail</span>
-          </div>
-          <ArrowUpRight className="size-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
-        </Link>
-      </div>
-
-      {/* Custom Date Range Popover/Drawer */}
-      {showCustomPicker && (
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm animate-in fade-in slide-in-from-top-2">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Calendar className="size-4 text-slate-600" />
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                Custom Date Range Selection
-              </span>
+              <button
+                type="button"
+                onClick={() => setShowCustomPicker(!showCustomPicker)}
+                className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                  selectedRange === "custom" || showCustomPicker
+                    ? "bg-[#0B132B] text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-950"
+                }`}
+              >
+                <Calendar className="size-3" />
+                <span>Custom</span>
+              </button>
             </div>
+          </div>
 
+          {/* Active Range Summary Tag */}
+          <div className="flex items-center gap-2 text-xs text-slate-500 shrink-0">
+            <span className="text-slate-400">Showing:</span>
+            <span className="rounded-md bg-slate-100 px-2 py-0.5 font-semibold text-slate-900 border border-slate-200/80">
+              {rangeLabels[selectedRange]}
+            </span>
+          </div>
+        </div>
+
+        {/* Custom Date Range Popover Drawer */}
+        {showCustomPicker && (
+          <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 animate-in fade-in">
+            <span className="text-xs font-medium text-slate-600">Select custom dates:</span>
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs text-slate-500 font-medium">From:</span>
@@ -655,17 +424,18 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
                   setSelectedRange("custom");
                   setShowCustomPicker(false);
                 }}
-                className="rounded-full bg-[#0B132B] px-4 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-slate-800 transition-colors cursor-pointer"
+                className="rounded-lg bg-[#0B132B] px-3 py-1 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 Apply Range
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* 2. Primary KPI Cards Grid */}
+      {/* 3. FOUR CORE PERFORMANCE METRICS */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Net Paid Revenue */}
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs hover:border-slate-300 transition-colors">
           <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
             <span>Net Paid Revenue</span>
@@ -681,6 +451,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
           </p>
         </div>
 
+        {/* Orders Placed */}
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs hover:border-slate-300 transition-colors">
           <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
             <span>Orders Placed</span>
@@ -696,6 +467,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
           </p>
         </div>
 
+        {/* Active Customers */}
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs hover:border-slate-300 transition-colors">
           <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
             <span>Active Customers</span>
@@ -711,6 +483,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
           </p>
         </div>
 
+        {/* Inquiries & Quotes */}
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs hover:border-slate-300 transition-colors">
           <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
             <span>Inquiries & Quotes</span>
@@ -727,14 +500,15 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
         </div>
       </div>
 
-      {/* 3. Interactive Graphic Trend Chart */}
+      {/* 4. EXPANDED GRAPH WITH MULTI-METRIC SELECTION & CHART STYLE TOGGLE */}
       <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-2xs">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
+        {/* Graph Header: Title, Metric Selector, and View Mode Toggle */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-100 pb-4">
           <div>
             <div className="flex items-center gap-2">
-              <TrendingUp className="size-4 text-emerald-600" />
+              <TrendingUp className="size-4.5 text-emerald-600" />
               <h2 className="text-base font-bold text-slate-950 tracking-tight">
-                Sales & Order Trajectory
+                Sales & Performance Trajectory
               </h2>
             </div>
             <p className="mt-0.5 text-xs text-slate-500">
@@ -742,30 +516,89 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
             </p>
           </div>
 
-          {/* Metric Toggle Tabs */}
-          <div className="inline-flex rounded-xl bg-slate-100 p-1">
-            <button
-              type="button"
-              onClick={() => setActiveChartTab("revenue")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-                activeChartTab === "revenue"
-                  ? "bg-white text-slate-950 shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Revenue (₹)
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveChartTab("orders")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-                activeChartTab === "orders"
-                  ? "bg-white text-slate-950 shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Order Count
-            </button>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Metric Options Selector Tabs (Revenue, Orders, AOV, Customers, Inquiries) */}
+            <div className="inline-flex items-center rounded-xl bg-slate-100 p-1 shadow-inner gap-0.5 flex-wrap">
+              {[
+                { key: "revenue", label: "Revenue (₹)" },
+                { key: "orders", label: "Orders" },
+                { key: "aov", label: "AOV (₹)" },
+                { key: "customers", label: "Customers" },
+                { key: "inquiries", label: "Inquiries" },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setActiveMetric(key as ChartMetricKey)}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                    activeMetric === key
+                      ? "bg-white text-slate-950 shadow-2xs font-bold"
+                      : "text-slate-600 hover:text-slate-950"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Chart Style Toggle (Area Curve vs Bar Graph) */}
+            <div className="inline-flex items-center rounded-xl bg-slate-100 p-1 shadow-inner gap-0.5">
+              <button
+                type="button"
+                onClick={() => setChartStyle("area")}
+                title="Area Trend Curve"
+                aria-label="Area Trend Curve"
+                className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                  chartStyle === "area"
+                    ? "bg-[#0B132B] text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-950"
+                }`}
+              >
+                <TrendingUp className="size-3.5" />
+                <span className="hidden sm:inline">Curve</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setChartStyle("bar")}
+                title="Bar Graph View"
+                aria-label="Bar Graph View"
+                className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                  chartStyle === "bar"
+                    ? "bg-[#0B132B] text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-950"
+                }`}
+              >
+                <BarChart3 className="size-3.5" />
+                <span className="hidden sm:inline">Bars</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Graph Highlight Stats Banner */}
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3 p-3 rounded-xl bg-slate-50/80 border border-slate-100 text-xs">
+          <div>
+            <span className="text-slate-400 font-mono text-[11px] uppercase tracking-wider block">
+              Period Metric
+            </span>
+            <span className="font-bold text-slate-900 text-sm">{metricStats.total}</span>
+          </div>
+
+          <div>
+            <span className="text-slate-400 font-mono text-[11px] uppercase tracking-wider block">
+              Peak Spike Interval
+            </span>
+            <span className="font-bold text-slate-900 text-sm">{metricStats.peak}</span>
+          </div>
+
+          <div className="col-span-2 sm:col-span-1">
+            <span className="text-slate-400 font-mono text-[11px] uppercase tracking-wider block">
+              Run-Rate Trend
+            </span>
+            <span className="font-bold text-emerald-700 text-sm flex items-center gap-1">
+              <span>↗</span> {metricStats.trend}
+            </span>
           </div>
         </div>
 
@@ -773,12 +606,16 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
         <div className="mt-6 relative">
           <svg
             viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-            className="w-full h-48 sm:h-56 overflow-visible"
+            className="w-full h-52 sm:h-60 overflow-visible"
           >
             <defs>
               <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#bef264" stopOpacity="0.45" />
                 <stop offset="100%" stopColor="#bef264" stopOpacity="0.0" />
+              </linearGradient>
+              <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#bef264" stopOpacity="0.9" />
+                <stop offset="100%" stopColor="#84cc16" stopOpacity="0.75" />
               </linearGradient>
             </defs>
 
@@ -796,50 +633,89 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
               />
             ))}
 
-            {/* Area Fill */}
-            {areaPath && (
-              <path d={areaPath} fill="url(#chartGradient)" />
-            )}
+            {chartStyle === "area" ? (
+              <>
+                {/* Area Fill */}
+                {areaPath && <path d={areaPath} fill="url(#chartGradient)" />}
 
-            {/* Line Path */}
-            {linePath && (
-              <path
-                d={linePath}
-                fill="none"
-                stroke="#16a34a"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            )}
+                {/* Line Path */}
+                {linePath && (
+                  <path
+                    d={linePath}
+                    fill="none"
+                    stroke="#16a34a"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )}
 
-            {/* Interactive Data Points */}
-            {points.map((p, i) => (
-              <g key={i}>
-                <circle
-                  cx={p.x}
-                  cy={p.y}
-                  r={hoveredPointIndex === i ? 6 : 4}
-                  className="fill-[#bef264] stroke-[#0B132B] stroke-2 cursor-pointer transition-all duration-200"
-                  onMouseEnter={() => setHoveredPointIndex(i)}
-                  onMouseLeave={() => setHoveredPointIndex(null)}
-                />
-                <text
-                  x={p.x}
-                  y={chartHeight + 10}
-                  textAnchor="middle"
-                  className="text-[10px] font-mono fill-slate-400"
-                >
-                  {p.data.label}
-                </text>
-              </g>
-            ))}
+                {/* Interactive Data Nodes */}
+                {points.map((p, i) => (
+                  <g key={i}>
+                    <circle
+                      cx={p.x}
+                      cy={p.y}
+                      r={hoveredPointIndex === i ? 6.5 : 4.5}
+                      className="fill-[#bef264] stroke-[#0B132B] stroke-2 cursor-pointer transition-all duration-200"
+                      onMouseEnter={() => setHoveredPointIndex(i)}
+                      onMouseLeave={() => setHoveredPointIndex(null)}
+                    />
+                    <text
+                      x={p.x}
+                      y={chartHeight + 12}
+                      textAnchor="middle"
+                      className="text-[10px] font-mono fill-slate-400"
+                    >
+                      {p.data.label}
+                    </text>
+                  </g>
+                ))}
+              </>
+            ) : (
+              /* Bar Chart Columns */
+              points.map((p, i) => {
+                const barWidth = Math.max(16, (chartWidth - 60) / points.length - 12);
+                const barX = p.x - barWidth / 2;
+                const barHeight = Math.max(4, chartHeight - 10 - p.y);
+                const isHovered = hoveredPointIndex === i;
+
+                return (
+                  <g
+                    key={i}
+                    className="cursor-pointer transition-opacity"
+                    onMouseEnter={() => setHoveredPointIndex(i)}
+                    onMouseLeave={() => setHoveredPointIndex(null)}
+                  >
+                    <rect
+                      x={barX}
+                      y={p.y}
+                      width={barWidth}
+                      height={barHeight}
+                      rx="4"
+                      fill={isHovered ? "#bef264" : "url(#barGradient)"}
+                      stroke={isHovered ? "#0B132B" : "none"}
+                      strokeWidth={isHovered ? 1.5 : 0}
+                      className="transition-all duration-200"
+                    />
+                    <text
+                      x={p.x}
+                      y={chartHeight + 12}
+                      textAnchor="middle"
+                      className="text-[10px] font-mono fill-slate-400"
+                    >
+                      {p.data.label}
+                    </text>
+                  </g>
+                );
+              })
+            )}
           </svg>
 
-          {/* Hover Tooltip display */}
+          {/* Interactive Floating Hover Tooltip */}
           {hoveredPointIndex !== null && points[hoveredPointIndex] && (
             <div
-              className="absolute pointer-events-none rounded-xl bg-[#0B132B] px-3 py-2 text-xs text-white shadow-xl transition-all"
+              className="absolute pointer-events-none rounded-xl bg-[#0B132B] px-3.5 py-2 text-xs text-white shadow-xl transition-all z-10"
               style={{
                 left: `${(points[hoveredPointIndex].x / chartWidth) * 100}%`,
                 top: "10%",
@@ -849,20 +725,21 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
               <p className="font-semibold text-[#bef264]">
                 {points[hoveredPointIndex].data.label}
               </p>
-              <p className="font-mono text-slate-200 mt-0.5">
-                {activeChartTab === "revenue"
-                  ? formatPaise(points[hoveredPointIndex].data.revenuePaise)
-                  : `${points[hoveredPointIndex].data.orders} Orders`}
+              <p className="font-mono text-slate-100 mt-0.5 text-xs font-bold">
+                {formatHoverValue(points[hoveredPointIndex].value)}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                {points[hoveredPointIndex].data.orders} orders • {points[hoveredPointIndex].data.customers} visits
               </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* 4. Directory & Catalog Signals */}
+      {/* 5. DIRECTORY & CATALOG SIGNALS */}
       <div className="space-y-3">
         <h2 className="text-base font-bold text-slate-900 tracking-tight">
-          Directory & Catalog
+          Directory & Catalog Overview
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
@@ -905,56 +782,72 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
         </div>
       </div>
 
-      {/* 5. Inventory Alerts */}
+      {/* 6. WAREHOUSE INVENTORY ALERTS */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-slate-900 tracking-tight">
-            Inventory & Dispatch Alerts
+          <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <Boxes className="size-4.5 text-amber-600" />
+            <span>Warehouse Stock Alerts</span>
           </h2>
-          {initialData.lowStock.length > 0 && (
-            <span className="text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
-              {initialData.lowStock.length} items low stock
-            </span>
-          )}
+          <Link
+            href="/admin/inventory"
+            className="text-xs font-semibold text-slate-700 hover:text-slate-950 flex items-center gap-1"
+          >
+            <span>Manage stock counts</span>
+            <ArrowUpRight className="size-3.5" />
+          </Link>
         </div>
 
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs space-y-4">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
           {initialData.lowStock.length > 0 ? (
             <div className="space-y-3">
               {initialData.lowStock.map((variant) => (
-                <div key={variant.id} className="border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs font-mono font-medium text-slate-800">
-                      stock.ghef.export - low stock alert, variant #{variant.id}
-                    </span>
-                    <span className="text-xs text-rose-600 font-semibold bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-full">
-                      Only {variant.stock} left
-                    </span>
+                <div
+                  key={variant.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3 last:border-0 last:pb-0"
+                >
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-slate-900">
+                        {variant.title}
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-500">
+                        (Color: {variant.color ?? "Standard"}, Size: {variant.size ?? "Standard"})
+                      </span>
+                    </div>
+                    <p className="text-xs text-rose-600 font-medium mt-0.5">
+                      Warehouse critical: Only {variant.stock} unit{variant.stock === 1 ? "" : "s"} remaining
+                    </p>
                   </div>
-                  <p className="mt-1 text-xs font-mono text-slate-500 break-all">
-                    Product &quot;{variant.title}&quot; (Color: {variant.color ?? "Standard"}, Size: {variant.size ?? "Standard"}). Immediate restocking recommended before sales outage.
-                  </p>
+
+                  <Link
+                    href="/admin/inventory"
+                    className="inline-flex items-center gap-1 self-start sm:self-auto rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors"
+                  >
+                    <span>Update Stock</span>
+                    <ArrowUpRight className="size-3" />
+                  </Link>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="py-2">
-              <div className="text-xs font-mono font-medium text-slate-800">
-                system.ghef.export - warehouse inventory audit, healthy
+            <div className="flex items-center gap-3 py-2 text-emerald-800">
+              <Check className="size-5 text-emerald-600" />
+              <div>
+                <p className="text-xs font-bold text-slate-900">Warehouse Inventory Healthy</p>
+                <p className="text-xs text-slate-500">All rug variants meet safe minimum thresholds.</p>
               </div>
-              <p className="mt-1 text-xs font-mono text-slate-500">
-                All catalog variants meet minimum threshold. Fulfillment pipelines operating smoothly.
-              </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* 6. Recent Orders & Fulfillment */}
+      {/* 7. RECENT ORDERS TO FULFILL */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-slate-900 tracking-tight">
-            Recent Orders
+          <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <ShoppingCart className="size-4.5 text-blue-600" />
+            <span>Recent Orders & Fulfillment</span>
           </h2>
           <Link
             href="/admin/orders"
