@@ -18,7 +18,7 @@ export const metadata = {
 export const instant = false;
 
 export default async function AdminTrafficPage() {
-  await requireAdmin("admin");
+  await requireAdmin("staff");
 
   return (
     <Suspense fallback={<TrafficSkeleton />}>
