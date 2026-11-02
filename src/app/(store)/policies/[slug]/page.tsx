@@ -24,7 +24,7 @@ export default async function PolicyPage({ params }: Params) {
   if (!policy) notFound();
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pt-28 pb-20 sm:px-6 lg:pt-32">
+    <main className="mx-auto max-w-3xl px-4 pt-36 pb-20 sm:px-6 lg:pt-40">
       <h1 className="text-title font-semibold">{policy.title}.</h1>
       {policy.sections.map(({ heading, body }) => (
         <section key={heading} className="mt-8">

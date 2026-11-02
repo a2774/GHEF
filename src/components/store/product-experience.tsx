@@ -2,6 +2,7 @@
 
 import { Heart, Minus, Plus } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useState, useTransition } from "react";
 
 import {
@@ -11,13 +12,25 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
+import { roomName } from "@/lib/catalog-taxonomy";
 import { formatPaise } from "@/lib/format";
 import { removeFromWishlist } from "@/server/actions/cart";
 import type { ProductDetail } from "@/server/services/products";
 
 import { useAuth } from "./auth-provider";
-import { ProductPhoto } from "./product-photo";
+import { DeliveryTimeline } from "./delivery-timeline";
+import { ProductGallery } from "./product-gallery";
 import { RugIllustration, rugPaletteFor, rugSwatch } from "./rug-illustration";
+import { StockAlertForm } from "./stock-alert-form";
+
+export type PurchaseInfo = {
+  offers: { title: string; detail: string }[];
+  readyDispatchDays: number;
+  madeToOrderDays: number;
+  transitDays: number;
+  codEnabled: boolean;
+  shippingPaise: number;
+};
 
 const galleryViews = ["Full carpet", "Close up", "In a room"] as const;
 type GalleryView = (typeof galleryViews)[number];
@@ -56,7 +69,7 @@ function GalleryImage({
   );
 }
 
-export function ProductExperience({ product }: { product: ProductDetail }) {
+export function ProductExperience({ product, purchase }: { product: ProductDetail; purchase: PurchaseInfo }) {
   const { requireLogin, wishlistIds, refreshCustomerState } = useAuth();
   const colors = [...new Set(product.variants.map(({ color }) => color))];
   const sizes = [...new Set(product.variants.map(({ size }) => size))];
@@ -65,7 +78,6 @@ export function ProductExperience({ product }: { product: ProductDetail }) {
   const [color, setColor] = useState(colors[0]);
   const [size, setSize] = useState(sizes[0]);
   const [view, setView] = useState<GalleryView>("Full carpet");
-  const [photoId, setPhotoId] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [pending, startTransition] = useTransition();
   const wishlisted = wishlistIds.includes(product.id);
@@ -74,6 +86,18 @@ export function ProductExperience({ product }: { product: ProductDetail }) {
     (candidate) => candidate.color === color && candidate.size === size,
   );
   const soldOut = !variant || variant.stock === 0;
+  const discount =
+    variant && variant.mrpPaise > variant.pricePaise
+      ? Math.round(((variant.mrpPaise - variant.pricePaise) / variant.mrpPaise) * 100)
+      : 0;
+  const details = [
+    { label: "Material", value: product.material },
+    { label: "Construction", value: product.category },
+    { label: "Pile height", value: product.pileHeight },
+    { label: "Backing", value: product.backing },
+    { label: "Best for", value: product.rooms.map(roomName).join(", ") },
+    { label: "Made in", value: "India, by hand" },
+  ].filter((detail): detail is { label: string; value: string } => Boolean(detail.value));
   const sizesForColor = new Set(
     product.variants.filter((candidate) => candidate.color === color).map(({ size }) => size),
   );
@@ -107,32 +131,7 @@ export function ProductExperience({ product }: { product: ProductDetail }) {
     <div className="mx-auto grid max-w-7xl gap-10 px-4 pt-5 pb-20 sm:px-6 lg:grid-cols-[1.3fr_1fr] lg:gap-16 lg:px-8 lg:pb-32">
       <div>
         {product.images.length > 0 ? (
-          <>
-            <div className="relative aspect-square overflow-hidden rounded-3xl bg-muted">
-              <ProductPhoto
-                publicId={(product.images.find(({ id }) => id === photoId) ?? product.images[0]).publicId}
-                alt={product.title}
-                sizes="(min-width: 1024px) 60vw, 100vw"
-                className="object-cover"
-              />
-            </div>
-            {product.images.length > 1 && (
-              <div className="mt-4 grid grid-cols-4 gap-3 sm:gap-4">
-                {product.images.map((image, index) => (
-                  <button
-                    key={image.id}
-                    type="button"
-                    aria-label={`Show image ${index + 1}`}
-                    aria-pressed={(photoId ?? product.images[0].id) === image.id}
-                    onClick={() => setPhotoId(image.id)}
-                    className="relative aspect-square overflow-hidden rounded-2xl bg-muted outline-offset-2 transition-opacity hover:opacity-80 aria-pressed:outline-2 aria-pressed:outline-primary"
-                  >
-                    <ProductPhoto publicId={image.publicId} alt="" sizes="20vw" className="object-cover" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </>
+          <ProductGallery images={product.images} title={product.title} />
         ) : (
           <>
             <div className="relative aspect-square overflow-hidden rounded-3xl bg-muted">
@@ -156,11 +155,34 @@ export function ProductExperience({ product }: { product: ProductDetail }) {
         )}
       </div>
 
-      <div className="lg:sticky lg:top-28 lg:self-start">
-        <p className="text-lg text-muted-foreground">{product.category}</p>
+      <div className="lg:sticky lg:top-36 lg:self-start">
+        <p className="flex flex-wrap items-center gap-2 text-lg text-muted-foreground">
+          {product.category}
+          {product.isReadyToDispatch && (
+            <span className="rounded-full bg-muted px-3 py-0.5 text-sm text-foreground">Ready to ship</span>
+          )}
+          {product.isBestseller && (
+            <span className="rounded-full bg-muted px-3 py-0.5 text-sm text-foreground">Bestseller</span>
+          )}
+        </p>
         <h1 className="mt-1 text-title font-semibold">{product.title}</h1>
-        <p className="mt-4 text-2xl">{variant ? formatPaise(variant.pricePaise) : "Unavailable"}</p>
-        <p className="mt-5 text-lg leading-relaxed text-muted-foreground">{product.description}</p>
+        <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <p className="text-2xl">{variant ? formatPaise(variant.pricePaise) : "Unavailable"}</p>
+          {discount > 0 && variant && (
+            <>
+              <s className="text-lg text-muted-foreground">{formatPaise(variant.mrpPaise)}</s>
+              <span className="rounded-full bg-primary px-3 py-0.5 text-sm text-primary-foreground">
+                {discount}% off
+              </span>
+            </>
+          )}
+        </div>
+        <p className="mt-1 text-base text-muted-foreground">
+          Inclusive of all taxes.{" "}
+          {purchase.shippingPaise === 0
+            ? "Free delivery in India."
+            : `Delivery ${formatPaise(purchase.shippingPaise)} per order.`}
+        </p>
 
         <fieldset className="mt-8">
           <legend className="text-base font-medium">Colour: {color}</legend>
@@ -272,13 +294,62 @@ export function ProductExperience({ product }: { product: ProductDetail }) {
           )}
         </div>
 
-        <Accordion className="mt-8">
-          <AccordionItem value="materials">
+        {soldOut && variant && (
+          <div className="mt-4">
+            <StockAlertForm key={variant.id} variantId={variant.id} label={`${color}, ${size}`} />
+          </div>
+        )}
+
+        {purchase.offers.length > 0 && (
+          <section aria-labelledby="offers-heading" className="mt-8 rounded-3xl border border-border p-5">
+            <h2 id="offers-heading" className="text-xl font-semibold tracking-tight">
+              Available offers
+            </h2>
+            <ul className="mt-3 divide-y divide-border">
+              {purchase.offers.map(({ title, detail }) => (
+                <li key={title} className="py-3">
+                  <p className="text-base font-medium">{title}</p>
+                  <p className="text-base text-muted-foreground">{detail}</p>
+                </li>
+              ))}
+            </ul>
+            <p className="text-sm text-muted-foreground">Applied automatically in your cart.</p>
+          </section>
+        )}
+
+        <div className="mt-4">
+          <DeliveryTimeline
+            readyToShip={product.isReadyToDispatch && !soldOut}
+            dispatchDays={product.isReadyToDispatch && !soldOut ? purchase.readyDispatchDays : purchase.madeToOrderDays}
+            transitDays={purchase.transitDays}
+          />
+        </div>
+
+        <Accordion className="mt-8" defaultValue={["description"]}>
+          <AccordionItem value="description">
             <AccordionTrigger className="py-4 font-heading text-xl font-semibold">
-              Materials
+              Description
             </AccordionTrigger>
-            <AccordionContent className="text-lg leading-relaxed text-muted-foreground">
-              {product.material}, {product.category.toLowerCase()}.
+            <AccordionContent className="text-lg leading-relaxed whitespace-pre-line text-muted-foreground">
+              {product.description}
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem value="details">
+            <AccordionTrigger className="py-4 font-heading text-xl font-semibold">
+              Details
+            </AccordionTrigger>
+            <AccordionContent>
+              <dl className="divide-y divide-border text-lg">
+                {details.map(({ label, value }) => (
+                  <div key={label} className="flex justify-between gap-6 py-2.5">
+                    <dt className="text-muted-foreground">{label}</dt>
+                    <dd className="text-right">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-3 text-base text-muted-foreground">
+                Handmade pieces vary a little in shade and size. That is the mark of the hand, not a flaw.
+              </p>
             </AccordionContent>
           </AccordionItem>
           <AccordionItem value="care">
@@ -286,11 +357,74 @@ export function ProductExperience({ product }: { product: ProductDetail }) {
               Care
             </AccordionTrigger>
             <AccordionContent className="text-lg leading-relaxed text-muted-foreground">
-              Vacuum gently, blot spills quickly, and rotate every few months for even wear.
+              Vacuum gently without the beater bar, blot spills quickly with a clean cloth and mild
+              detergent, and rotate every few months for even wear. For deep stains, use a professional
+              carpet cleaner.
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem value="shipping">
+            <AccordionTrigger className="py-4 font-heading text-xl font-semibold">
+              Shipping and payment
+            </AccordionTrigger>
+            <AccordionContent className="text-lg leading-relaxed text-muted-foreground">
+              {purchase.shippingPaise === 0
+                ? "Free delivery across India."
+                : `Delivery across India for ${formatPaise(purchase.shippingPaise)} per order.`}{" "}
+              Ready stock ships in about {purchase.readyDispatchDays}{" "}
+              {purchase.readyDispatchDays === 1 ? "working day" : "working days"}; made-to-order pieces
+              take around {purchase.madeToOrderDays} working days to weave. Tracking details reach you by
+              email once it ships. Pay by UPI, card or net banking
+              {purchase.codEnabled ? ", or cash on delivery." : "."}{" "}
+              <Link href="/policies/shipping" className="underline underline-offset-4">
+                Shipping policy
+              </Link>
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem value="returns">
+            <AccordionTrigger className="py-4 font-heading text-xl font-semibold">
+              Returns
+            </AccordionTrigger>
+            <AccordionContent className="text-lg leading-relaxed text-muted-foreground">
+              Something not right? Request a return from your account after delivery and tell us why. We
+              review every request.{" "}
+              <Link href="/policies/returns" className="underline underline-offset-4">
+                Returns policy
+              </Link>
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem value="custom">
+            <AccordionTrigger className="py-4 font-heading text-xl font-semibold">
+              Need another size or colour?
+            </AccordionTrigger>
+            <AccordionContent className="text-lg leading-relaxed text-muted-foreground">
+              We weave to your measurements and palette.{" "}
+              <Link href="/services/custom-carpets" className="underline underline-offset-4">
+                Ask for a custom carpet
+              </Link>
+              .
             </AccordionContent>
           </AccordionItem>
         </Accordion>
       </div>
+
+      {!soldOut && variant && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-4 py-3 backdrop-blur lg:hidden">
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-base text-muted-foreground">{size}</p>
+              <p className="text-lg font-semibold">{formatPaise(variant.pricePaise * quantity)}</p>
+            </div>
+            <Button
+              type="button"
+              disabled={pending}
+              onClick={() => handleBuy()}
+              className="h-12 rounded-full px-8 text-base"
+            >
+              Add to Cart
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

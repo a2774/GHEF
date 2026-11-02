@@ -4,23 +4,49 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
-import { ProductExperience } from "@/components/store/product-experience";
+import { type PurchaseInfo, ProductExperience } from "@/components/store/product-experience";
+import { ProductRail } from "@/components/store/product-rail";
 import { ProductReviews } from "@/components/store/product-reviews";
+import { describeDbError } from "@/lib/db-error";
 import { siteName, siteUrl } from "@/lib/site";
+import { offerHeadlines } from "@/server/services/pricing";
 import { getActiveProductSlugs, getProductBySlug } from "@/server/services/products";
+import { getStoreSettings } from "@/server/services/settings";
 
 type ProductPageProps = { params: Promise<{ slug: string }> };
 
-async function loadProduct(slug: string) {
+async function loadCachedProduct(slug: string) {
   "use cache";
   cacheTag("products");
   cacheLife("hours");
+  return getProductBySlug(slug);
+}
 
+// Errors are caught outside the cache, so a database hiccup is not
+// remembered as "product not found" for the next hour.
+async function loadProduct(slug: string) {
   try {
-    return await getProductBySlug(slug);
-  } catch {
+    return await loadCachedProduct(slug);
+  } catch (error) {
+    console.error(`Could not load product "${slug}": ${describeDbError(error)}`);
     return null;
   }
+}
+
+async function loadPurchaseInfo(): Promise<PurchaseInfo> {
+  "use cache";
+  cacheTag("storefront");
+  cacheLife("hours");
+
+  const settings = await getStoreSettings();
+  return {
+    offers: offerHeadlines(settings.offers),
+    readyDispatchDays: settings.readyDispatchDays,
+    madeToOrderDays: settings.madeToOrderDays,
+    transitDays: settings.transitDays,
+    codEnabled: settings.codEnabled,
+    shippingPaise: settings.shippingPaise,
+  };
 }
 
 export async function generateStaticParams() {
@@ -50,7 +76,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 async function Product({ params }: ProductPageProps) {
   const { slug } = await params;
-  const product = await loadProduct(slug);
+  const [product, purchase] = await Promise.all([loadProduct(slug), loadPurchaseInfo()]);
   if (!product) notFound();
 
   const prices = product.variants.map(({ pricePaise }) => pricePaise / 100);
@@ -82,7 +108,7 @@ async function Product({ params }: ProductPageProps) {
           __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
         }}
       />
-      <nav aria-label="Breadcrumb" className="mx-auto max-w-7xl px-4 pt-24 text-base text-muted-foreground sm:px-6 lg:px-8">
+      <nav aria-label="Breadcrumb" className="mx-auto max-w-7xl px-4 pt-32 text-base text-muted-foreground sm:px-6 lg:px-8">
         <Link href="/" className="hover:text-foreground">
           Home
         </Link>
@@ -91,10 +117,22 @@ async function Product({ params }: ProductPageProps) {
           Products
         </Link>
         {" / "}
+        <Link href={`/products?category=${product.categorySlug}`} className="hover:text-foreground">
+          {product.category}
+        </Link>
+        {" / "}
         <span className="text-foreground">{product.title}</span>
       </nav>
-      <ProductExperience product={product} />
+      <ProductExperience product={product} purchase={purchase} />
       <ProductReviews productId={product.id} />
+      <ProductRail
+        title="You may also like."
+        href={`/products?category=${product.categorySlug}`}
+        filters={{ category: product.categorySlug, sort: "bestselling" }}
+        limit={4}
+        excludeSlug={product.slug}
+      />
+      <div className="h-20 lg:h-32" />
     </>
   );
 }

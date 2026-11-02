@@ -13,6 +13,8 @@ type ProductCardData = {
   priceFromPaise: number | null;
   mrpFromPaise?: number | null;
   stock?: number;
+  isBestseller?: boolean;
+  isReadyToDispatch?: boolean;
   primaryImageId: string | null;
 };
 
@@ -40,6 +42,11 @@ export function ProductCard({ product }: { product: ProductCardData }) {
         {discount > 0 && (
           <span className="liquid-glass absolute top-3 left-3 rounded-full px-3 py-1 text-sm text-primary-foreground">
             {discount}% off
+          </span>
+        )}
+        {(product.isReadyToDispatch || product.isBestseller) && (
+          <span className="absolute top-3 right-3 rounded-full bg-background/90 px-3 py-1 text-sm text-foreground">
+            {product.isReadyToDispatch ? "Ready to ship" : "Bestseller"}
           </span>
         )}
       </div>

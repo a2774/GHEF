@@ -11,7 +11,8 @@ import {
   wishlistItems,
 } from "@/server/db/schema";
 
-import { calculateTotals, evaluateCoupon } from "./pricing";
+import { priceCart } from "./pricing";
+import { getStoreSettings } from "./settings";
 
 export async function getCartCount(userId: string) {
   const [row] = await withDbRetry(async () =>
@@ -58,26 +59,42 @@ export async function getCart(userId: string) {
       unitPricePaise,
       quantity: billableQuantity,
     }));
-    const { subtotalPaise } = calculateTotals(billable);
 
-    const [saved] = await db
-      .select({ coupon: coupons })
-      .from(carts)
-      .innerJoin(coupons, eq(carts.couponId, coupons.id))
-      .where(eq(carts.userId, userId));
+    const [[saved], settings] = await Promise.all([
+      db
+        .select({ coupon: coupons })
+        .from(carts)
+        .innerJoin(coupons, eq(carts.couponId, coupons.id))
+        .where(eq(carts.userId, userId)),
+      getStoreSettings(),
+    ]);
 
-    const evaluation = saved ? evaluateCoupon(saved.coupon, subtotalPaise) : null;
-    const totals = calculateTotals(billable, evaluation?.ok ? evaluation.discountPaise : 0);
+    // Shown before a payment method is picked, so the prepaid saving is a preview.
+    const pricing = priceCart({
+      lines: billable,
+      offers: settings.offers,
+      coupon: saved?.coupon,
+      couponCode: saved?.coupon.code,
+      prepaid: false,
+    });
+    const prepaidPricing = priceCart({
+      lines: billable,
+      offers: settings.offers,
+      coupon: saved?.coupon,
+      couponCode: saved?.coupon.code,
+      prepaid: true,
+    });
 
     return {
       lines,
-      totals,
-      coupon: saved
-        ? {
-            code: saved.coupon.code,
-            error: evaluation && !evaluation.ok ? evaluation.error : null,
-          }
-        : null,
+      pricing,
+      prepaidPricing,
+      totals: {
+        subtotalPaise: pricing.subtotalPaise,
+        discountPaise: pricing.discountPaise,
+        totalPaise: pricing.totalPaise,
+      },
+      coupon: saved ? { code: saved.coupon.code, error: pricing.couponError } : null,
       canCheckout: lines.some(({ billableQuantity }) => billableQuantity > 0),
     };
   });

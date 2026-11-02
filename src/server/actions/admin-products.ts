@@ -3,7 +3,9 @@
 import { and, asc, eq, notInArray, sql } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 
+import { roomSlugs } from "@/lib/catalog-taxonomy";
 import { logAdminAction, requireAdmin } from "@/server/auth/admin-session";
 import { db, withDbRetry } from "@/server/db";
 import { categories, productImages, products, productVariants } from "@/server/db/schema";
@@ -12,6 +14,7 @@ import {
   destroyImage,
   isOwnProductImage,
 } from "@/server/services/cloudinary";
+import { sendBackInStockAlerts } from "@/server/services/stock-alerts";
 
 export type VariantInput = {
   id?: number;
@@ -40,6 +43,10 @@ export type ProductInput = {
   status: "draft" | "active" | "archived";
   isFeatured: boolean;
   isBestseller: boolean;
+  isReadyToDispatch?: boolean;
+  rooms?: string[];
+  pileHeight?: string;
+  backing?: string;
   variants: VariantInput[];
   images?: ProductImageInput[];
 };
@@ -111,6 +118,10 @@ export async function saveProduct(input: ProductInput) {
     status: input.status,
     isFeatured: input.isFeatured,
     isBestseller: input.isBestseller,
+    isReadyToDispatch: Boolean(input.isReadyToDispatch),
+    rooms: Array.isArray(input.rooms) ? [...new Set(input.rooms.filter((room) => roomSlugs.includes(room)))] : [],
+    pileHeight: typeof input.pileHeight === "string" && input.pileHeight.trim() ? input.pileHeight.trim().slice(0, 40) : null,
+    backing: typeof input.backing === "string" && input.backing.trim() ? input.backing.trim().slice(0, 80) : null,
   };
   if (!values.slug) return "Add a valid URL slug.";
 
@@ -213,6 +224,8 @@ export async function saveProduct(input: ProductInput) {
 
   await logAdminAction(admin, input.id ? "update" : "create", "product", productId, values.title);
   refreshStorefront(productId);
+  const restocked = input.variants.flatMap(({ id, stock }) => (id && stock > 0 ? [id] : []));
+  if (restocked.length > 0) after(() => sendBackInStockAlerts(restocked));
   if (!input.id) redirect(`/admin/products/${productId}`);
   return null;
 }

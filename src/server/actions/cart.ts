@@ -120,8 +120,8 @@ export async function applyCoupon(code: string): Promise<{ ok: boolean; error?: 
   );
   if (!coupon) return { ok: false, error: "That coupon code is not valid." };
 
-  const { totals } = await getCart(userId);
-  const result = evaluateCoupon(coupon, totals.subtotalPaise);
+  const { pricing } = await getCart(userId);
+  const result = evaluateCoupon(coupon, pricing.subtotalPaise);
   if (!result.ok) return result;
 
   await withDbRetry(async () =>

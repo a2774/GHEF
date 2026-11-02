@@ -20,7 +20,7 @@ async function Cart() {
   const session = await getCustomerSession();
   if (!session?.user?.id) return <LoginPrompt message="Log in to see your cart." href="/cart" />;
 
-  const { lines, totals, coupon, canCheckout } = await getCart(session.user.id);
+  const { lines, pricing, coupon, canCheckout } = await getCart(session.user.id);
 
   if (lines.length === 0) {
     return (
@@ -73,7 +73,7 @@ async function Cart() {
         ))}
       </ul>
 
-      <aside className="space-y-4 rounded-3xl bg-muted p-6 lg:sticky lg:top-28 lg:self-start">
+      <aside className="space-y-4 rounded-3xl bg-muted p-6 lg:sticky lg:top-36 lg:self-start">
         <h2 className="text-2xl font-semibold tracking-tight">Summary</h2>
         <CouponForm appliedCode={coupon?.code ?? null} />
         {coupon?.error && (
@@ -81,26 +81,36 @@ async function Cart() {
             {coupon.error}
           </p>
         )}
+        {pricing.nextOffer && (
+          <p className="rounded-2xl bg-card px-4 py-3 text-base">
+            <span className="font-medium">Save more:</span> {pricing.nextOffer}
+          </p>
+        )}
         <dl className="space-y-2 border-t border-border pt-4 text-lg">
           <div className="flex justify-between">
-            <dt>Subtotal</dt>
-            <dd>{formatPaise(totals.subtotalPaise)}</dd>
+            <dt>Subtotal ({pricing.itemCount} {pricing.itemCount === 1 ? "item" : "items"})</dt>
+            <dd>{formatPaise(pricing.subtotalPaise)}</dd>
           </div>
-          {totals.discountPaise > 0 && (
-            <div className="flex justify-between">
-              <dt>Discount</dt>
-              <dd>-{formatPaise(totals.discountPaise)}</dd>
+          {pricing.discounts.map((discount) => (
+            <div key={discount.kind} className="flex justify-between gap-4">
+              <dt>{discount.label}</dt>
+              <dd className="whitespace-nowrap">-{formatPaise(discount.paise)}</dd>
             </div>
-          )}
+          ))}
           <div className="flex justify-between text-base text-muted-foreground">
             <dt>Shipping</dt>
             <dd>Calculated at checkout</dd>
           </div>
           <div className="flex justify-between border-t border-border pt-3 font-semibold">
             <dt>Total</dt>
-            <dd>{formatPaise(totals.totalPaise)}</dd>
+            <dd>{formatPaise(pricing.totalPaise)}</dd>
           </div>
         </dl>
+        {pricing.prepaidSavingPaise > 0 && (
+          <p className="text-base">
+            Pay online at checkout and save another {formatPaise(pricing.prepaidSavingPaise)}.
+          </p>
+        )}
         <p className="text-base text-muted-foreground">Prices include taxes.</p>
         {canCheckout ? (
           <Link
@@ -122,7 +132,7 @@ async function Cart() {
 
 export default function CartPage() {
   return (
-    <main className="mx-auto max-w-7xl px-4 pt-28 pb-20 sm:px-6 lg:px-8 lg:pt-32">
+    <main className="mx-auto max-w-7xl px-4 pt-36 pb-20 sm:px-6 lg:px-8 lg:pt-40">
       <h1 className="text-title font-semibold">Your cart.</h1>
       <div className="mt-8">
         <Suspense fallback={<div className="h-64 animate-pulse rounded-3xl bg-muted motion-reduce:animate-none" />}>
