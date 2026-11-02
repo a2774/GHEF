@@ -15,7 +15,9 @@ const cancellable = ["pending", "confirmed", "packed"];
 export default async function AdminOrderPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
   const { id } = await params;
-  const result = await getAdminOrder(Number(id));
+  const numericId = Number(id);
+  if (!Number.isInteger(numericId) || numericId <= 0) notFound();
+  const result = await getAdminOrder(numericId);
   if (!result) notFound();
   const { order, items } = result;
   const isCancelled = order.status === "cancelled";

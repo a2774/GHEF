@@ -70,7 +70,14 @@ export async function listAdminProducts() {
       .from(products)
       .innerJoin(categories, eq(products.categoryId, categories.id))
       .leftJoin(productVariants, eq(productVariants.productId, products.id))
-      .groupBy(products.id, categories.name)
+      .groupBy(
+        products.id,
+        products.title,
+        products.status,
+        products.isFeatured,
+        products.isBestseller,
+        categories.name,
+      )
       .orderBy(desc(products.createdAt)),
   );
 }
@@ -86,7 +93,7 @@ export async function listCategories() {
       })
       .from(categories)
       .leftJoin(products, eq(products.categoryId, categories.id))
-      .groupBy(categories.id)
+      .groupBy(categories.id, categories.name, categories.slug)
       .orderBy(categories.name),
   );
 }

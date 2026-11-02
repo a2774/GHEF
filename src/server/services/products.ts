@@ -26,7 +26,15 @@ export async function getFeaturedProducts(limit = 4) {
         and(eq(productImages.productId, products.id), eq(productImages.isPrimary, true)),
       )
       .where(and(eq(products.status, "active"), eq(products.isFeatured, true)))
-      .groupBy(products.id, categories.name, productImages.publicId)
+      .groupBy(
+        products.id,
+        products.title,
+        products.slug,
+        products.color,
+        products.material,
+        categories.name,
+        productImages.publicId,
+      )
       .orderBy(asc(products.title))
       .limit(limit),
   );
@@ -54,23 +62,24 @@ export async function getProductBySlug(slug: string) {
       .where(and(eq(products.slug, slug), eq(products.status, "active")));
     if (!product) return null;
 
-    const variants = await db
-      .select({
-        id: productVariants.id,
-        size: productVariants.size,
-        color: productVariants.color,
-        pricePaise: productVariants.pricePaise,
-        stock: productVariants.stock,
-      })
-      .from(productVariants)
-      .where(eq(productVariants.productId, product.id))
-      .orderBy(asc(productVariants.pricePaise));
-
-    const images = await db
-      .select({ id: productImages.id, publicId: productImages.publicId, alt: productImages.alt })
-      .from(productImages)
-      .where(eq(productImages.productId, product.id))
-      .orderBy(desc(productImages.isPrimary), asc(productImages.id));
+    const [variants, images] = await Promise.all([
+      db
+        .select({
+          id: productVariants.id,
+          size: productVariants.size,
+          color: productVariants.color,
+          pricePaise: productVariants.pricePaise,
+          stock: productVariants.stock,
+        })
+        .from(productVariants)
+        .where(eq(productVariants.productId, product.id))
+        .orderBy(asc(productVariants.pricePaise)),
+      db
+        .select({ id: productImages.id, publicId: productImages.publicId, alt: productImages.alt })
+        .from(productImages)
+        .where(eq(productImages.productId, product.id))
+        .orderBy(desc(productImages.isPrimary), asc(productImages.id)),
+    ]);
 
     return { ...product, variants, images };
   });

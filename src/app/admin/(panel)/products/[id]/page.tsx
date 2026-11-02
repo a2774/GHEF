@@ -8,7 +8,9 @@ import { getAdminProduct, listCategories } from "@/server/services/admin";
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
   const { id } = await params;
-  const [result, categories] = await Promise.all([getAdminProduct(Number(id)), listCategories()]);
+  const numericId = Number(id);
+  if (!Number.isInteger(numericId) || numericId <= 0) notFound();
+  const [result, categories] = await Promise.all([getAdminProduct(numericId), listCategories()]);
   if (!result) notFound();
 
   return (

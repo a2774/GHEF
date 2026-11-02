@@ -5,5 +5,6 @@ const rupees = new Intl.NumberFormat("en-IN", {
 });
 
 export function formatPaise(paise: number) {
+  if (typeof paise !== "number" || !Number.isFinite(paise)) return "₹0";
   return rupees.format(paise / 100);
 }

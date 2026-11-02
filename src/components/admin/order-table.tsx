@@ -8,8 +8,9 @@ const dateFormat = new Intl.DateTimeFormat("en-IN", {
   timeZone: "Asia/Kolkata",
 });
 
-export function formatDate(date: Date) {
-  return dateFormat.format(date);
+export function formatDate(date: Date | string | number) {
+  const d = date instanceof Date ? date : new Date(date);
+  return Number.isNaN(d.getTime()) ? "-" : dateFormat.format(d);
 }
 
 export function OrderTable({ rows }: { rows: (typeof orders.$inferSelect)[] }) {

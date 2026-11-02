@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { logout } from "@/server/actions/admin-auth";
+import { requireAdmin } from "@/server/auth/admin-session";
 
 const links = [
   { label: "Dashboard", href: "/admin" },
@@ -9,6 +10,11 @@ const links = [
   { label: "Categories", href: "/admin/categories" },
   { label: "Orders", href: "/admin/orders" },
 ];
+
+async function AdminGuard({ children }: { children: React.ReactNode }) {
+  await requireAdmin();
+  return <>{children}</>;
+}
 
 export default function AdminPanelLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -37,7 +43,7 @@ export default function AdminPanelLayout({ children }: { children: React.ReactNo
       </aside>
       <main className="min-w-0 p-4 sm:p-6 lg:p-10">
         <Suspense fallback={<p className="text-lg text-muted-foreground">Loading...</p>}>
-          {children}
+          <AdminGuard>{children}</AdminGuard>
         </Suspense>
       </main>
     </div>

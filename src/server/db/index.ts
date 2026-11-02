@@ -1,5 +1,7 @@
+import type { SocketConnectOpts } from "node:net";
+
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import { Client, Pool, type ClientConfig } from "pg";
 
 import * as schema from "./schema";
 
@@ -10,11 +12,32 @@ if (!process.env.DATABASE_URL) {
 const connectionUrl = new URL(process.env.DATABASE_URL);
 connectionUrl.searchParams.set("sslmode", "verify-full");
 
+// On dual-stack networks (especially on Windows), Node attempts IPv6 first.
+// If the local network or ISP blackholes IPv6, standard socket connects hang
+// until timeout (~20-50s), which triggers Next.js "use cache" prerender timeouts.
+// Forcing family: 4 on the underlying pg socket ensures instant (<400ms) connection.
+class IPv4Client extends Client {
+  constructor(config?: string | ClientConfig) {
+    super(config);
+    const socket = (this as unknown as { connection: { stream: { connect: (...args: unknown[]) => unknown } } })
+      .connection.stream;
+    const origConnect = socket.connect;
+    socket.connect = function (...args: unknown[]) {
+      if (typeof args[0] === "number") {
+        const [port, host, ...rest] = args as [number, string, ...unknown[]];
+        return origConnect.call(this, { port, host, family: 4 } as SocketConnectOpts, ...rest);
+      }
+      return origConnect.apply(this, args as [SocketConnectOpts]);
+    };
+  }
+}
+
 function createPool() {
   const pool = new Pool({
     connectionString: connectionUrl.href,
+    Client: IPv4Client,
     max: 5,
-    connectionTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 10_000,
     idleTimeoutMillis: 30_000,
     keepAlive: true,
   });

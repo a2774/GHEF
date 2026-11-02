@@ -45,19 +45,26 @@ function slugify(value: string) {
 }
 
 function validate(input: ProductInput) {
-  if (!input.title.trim()) return "Add a product name.";
-  if (!input.description.trim()) return "Add a description.";
-  if (!input.material.trim()) return "Add a material.";
+  if (typeof input.title !== "string" || !input.title.trim()) return "Add a product name.";
+  if (typeof input.description !== "string" || !input.description.trim()) return "Add a description.";
+  if (typeof input.material !== "string" || !input.material.trim()) return "Add a material.";
   if (!input.categoryId) return "Choose a category.";
-  if (input.variants.length === 0) return "Add at least one variant.";
+  if (!Array.isArray(input.variants) || input.variants.length === 0) return "Add at least one variant.";
 
   const keys = new Set<string>();
   for (const variant of input.variants) {
-    if (!variant.size.trim() || !variant.color.trim() || !variant.sku.trim()) {
+    if (
+      typeof variant.size !== "string" ||
+      !variant.size.trim() ||
+      typeof variant.color !== "string" ||
+      !variant.color.trim() ||
+      typeof variant.sku !== "string" ||
+      !variant.sku.trim()
+    ) {
       return "Every variant needs a size, colour and SKU.";
     }
     const validAmounts = [variant.pricePaise, variant.mrpPaise, variant.stock].every(
-      (value) => Number.isInteger(value) && value >= 0,
+      (value) => typeof value === "number" && Number.isInteger(value) && value >= 0,
     );
     if (!validAmounts) return "Prices and stock must be zero or more.";
     if (variant.pricePaise > variant.mrpPaise) return "Sale price cannot be above the regular price.";
@@ -158,8 +165,8 @@ export async function deleteProduct(id: number) {
   const images = await withDbRetry(async () =>
     db.select().from(productImages).where(eq(productImages.productId, id)),
   );
-  await Promise.all(images.map(({ publicId }) => destroyImage(publicId)));
   await withDbRetry(async () => db.delete(products).where(eq(products.id, id)));
+  await Promise.allSettled(images.map(({ publicId }) => destroyImage(publicId)));
 
   refreshStorefront();
   redirect("/admin/products");
@@ -174,16 +181,18 @@ export async function addProductImage(productId: number, publicId: string, url: 
   await requireAdmin();
   if (!isOwnProductImage(publicId, url)) throw new Error("Unknown image source.");
 
-  await withDbRetry(async () => {
-    const [{ total }] = await db
-      .select({ total: sql<number>`count(*)::int` })
-      .from(productImages)
-      .where(eq(productImages.productId, productId));
-    await db
-      .insert(productImages)
-      .values({ productId, publicId, url, isPrimary: total === 0 })
-      .onConflictDoNothing();
-  });
+  await withDbRetry(async () =>
+    db.transaction(async (tx) => {
+      const [{ total }] = await tx
+        .select({ total: sql<number>`count(*)::int` })
+        .from(productImages)
+        .where(eq(productImages.productId, productId));
+      await tx
+        .insert(productImages)
+        .values({ productId, publicId, url, isPrimary: total === 0 })
+        .onConflictDoNothing();
+    }),
+  );
   refreshStorefront(productId);
 }
 
@@ -216,21 +225,26 @@ export async function removeProductImage(productId: number, imageId: number) {
   );
   if (!image) return;
 
-  await destroyImage(image.publicId);
-  await withDbRetry(async () => {
-    await db.delete(productImages).where(eq(productImages.id, imageId));
-    if (!image.isPrimary) return;
+  await withDbRetry(async () =>
+    db.transaction(async (tx) => {
+      await tx.delete(productImages).where(eq(productImages.id, imageId));
+      if (!image.isPrimary) return;
 
-    const [next] = await db
-      .select({ id: productImages.id })
-      .from(productImages)
-      .where(eq(productImages.productId, productId))
-      .orderBy(asc(productImages.id))
-      .limit(1);
-    if (next) {
-      await db.update(productImages).set({ isPrimary: true }).where(eq(productImages.id, next.id));
-    }
-  });
+      const [next] = await tx
+        .select({ id: productImages.id })
+        .from(productImages)
+        .where(eq(productImages.productId, productId))
+        .orderBy(asc(productImages.id))
+        .limit(1);
+      if (next) {
+        await tx.update(productImages).set({ isPrimary: true }).where(eq(productImages.id, next.id));
+      }
+    }),
+  );
+
+  await destroyImage(image.publicId).catch((err) =>
+    console.error(`Failed to delete Cloudinary image ${image.publicId}:`, err),
+  );
   refreshStorefront(productId);
 }
 

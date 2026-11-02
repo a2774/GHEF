@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { consumeAttempt } from "@/server/auth/admin-session";
 import { createEnquiry } from "@/server/services/enquiries";
 
 const phonePattern = /^\+?[0-9 ()-]{7,20}$/;
@@ -10,6 +11,16 @@ function cleanText(value: unknown, maxLength: number) {
 }
 
 export async function POST(request: Request) {
+  const forwardedFor = request.headers.get("x-forwarded-for") ?? "local";
+  const ip = forwardedFor.split(",")[0].trim();
+  const allowed = await consumeAttempt(`enquiry:${ip}`, 5);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429 },
+    );
+  }
+
   const body = await request.json().catch(() => null);
   const type = body?.type;
   const name = cleanText(body?.name, 120);
@@ -23,6 +34,14 @@ export async function POST(request: Request) {
     );
   }
 
-  await createEnquiry({ type, name, phone, message });
-  return NextResponse.json({ received: true });
+  try {
+    await createEnquiry({ type, name, phone, message });
+    return NextResponse.json({ received: true });
+  } catch (error) {
+    console.error("Failed to create enquiry:", error);
+    return NextResponse.json(
+      { error: "Failed to process enquiry. Please try again." },
+      { status: 500 },
+    );
+  }
 }

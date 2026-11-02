@@ -18,10 +18,29 @@ const listeners = new Set<() => void>();
 
 let items: BagItem[] | null = null;
 
-function readBag() {
+function isValidBagItem(item: unknown): item is BagItem {
+  if (typeof item !== "object" || item === null) return false;
+  const candidate = item as Record<string, unknown>;
+  return (
+    typeof candidate.variantId === "number" &&
+    Number.isInteger(candidate.variantId) &&
+    typeof candidate.slug === "string" &&
+    typeof candidate.title === "string" &&
+    typeof candidate.size === "string" &&
+    typeof candidate.color === "string" &&
+    typeof candidate.pricePaise === "number" &&
+    Number.isFinite(candidate.pricePaise) &&
+    typeof candidate.quantity === "number" &&
+    candidate.quantity > 0 &&
+    Number.isInteger(candidate.quantity)
+  );
+}
+
+function readBag(): BagItem[] {
   if (items) return items;
   try {
-    items = JSON.parse(localStorage.getItem(storageKey) ?? "[]") as BagItem[];
+    const raw = JSON.parse(localStorage.getItem(storageKey) ?? "[]");
+    items = Array.isArray(raw) ? raw.filter(isValidBagItem) : emptyBag;
   } catch {
     items = emptyBag;
   }

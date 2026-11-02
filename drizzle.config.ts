@@ -4,11 +4,18 @@ import { defineConfig } from "drizzle-kit";
 
 if (existsSync(".env.local")) {
   process.loadEnvFile(".env.local");
+} else if (existsSync(".env")) {
+  process.loadEnvFile(".env");
 }
 
-// Migrations need a direct connection, not the pooled one.
-const connectionUrl = new URL(process.env.DATABASE_URL_UNPOOLED!);
-connectionUrl.searchParams.set("sslmode", "verify-full");
+const rawUrl = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
+if (!rawUrl) {
+  throw new Error("DATABASE_URL or DATABASE_URL_UNPOOLED must be set in .env.local or .env");
+}
+
+// Migrations prefer a direct unpooled connection, but fall back to DATABASE_URL.
+const connectionUrl = new URL(rawUrl);
+connectionUrl.searchParams.set("sslmode", "require");
 
 export default defineConfig({
   dialect: "postgresql",

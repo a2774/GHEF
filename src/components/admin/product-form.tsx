@@ -27,7 +27,8 @@ function toRupees(paise: number) {
 }
 
 function toPaise(rupees: string) {
-  return Math.round(Number(rupees) * 100);
+  const value = Number(rupees);
+  return Number.isFinite(value) && value >= 0 ? Math.round(value * 100) : 0;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
