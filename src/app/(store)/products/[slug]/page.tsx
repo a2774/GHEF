@@ -25,10 +25,13 @@ async function loadProduct(slug: string) {
 
 export async function generateStaticParams() {
   try {
-    return await getActiveProductSlugs();
+    const slugs = await getActiveProductSlugs();
+    if (slugs.length > 0) return slugs;
   } catch {
-    return [];
+    // Fallback when database is unreachable during CI / static analysis
   }
+  // Next.js 16 Cache Components requires at least one param for build-time validation
+  return [{ slug: "varuna" }];
 }
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {

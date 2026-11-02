@@ -1,14 +1,30 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Image as ImageIcon,
+  Loader2,
+  Plus,
+  Star,
+  Trash2,
+  UploadCloud,
+  Video,
+} from "lucide-react";
+import Image from "next/image";
 import { type FormEvent, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
-import { deleteProduct, type ProductInput, saveProduct } from "@/server/actions/admin-products";
-import type { products, productVariants } from "@/server/db/schema";
+import {
+  deleteProduct,
+  getUploadSignature,
+  type ProductImageInput,
+  type ProductInput,
+  saveProduct,
+} from "@/server/actions/admin-products";
+import type { products, productVariants, productImages } from "@/server/db/schema";
 
 type VariantRow = {
   key: number;
@@ -63,10 +79,12 @@ export function ProductForm({
   categories,
   product,
   variants = [],
+  initialImages = [],
 }: {
   categories: { id: number; name: string }[];
   product?: typeof products.$inferSelect;
   variants?: (typeof productVariants.$inferSelect)[];
+  initialImages?: (typeof productImages.$inferSelect)[];
 }) {
   const [rows, setRows] = useState<VariantRow[]>(
     variants.length > 0
@@ -82,6 +100,18 @@ export function ProductForm({
         }))
       : [{ key: 1, size: "", color: "", sku: "", price: "", mrp: "", stock: "0" }],
   );
+
+  // Uploaded media state (Cloudinary)
+  const [uploadedMedia, setUploadedMedia] = useState<ProductImageInput[]>(() =>
+    initialImages.map((img) => ({
+      id: img.id,
+      publicId: img.publicId,
+      url: img.url,
+      isPrimary: img.isPrimary,
+    }))
+  );
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -106,6 +136,80 @@ export function ProductForm({
     ]);
   }
 
+  // Upload files directly to Cloudinary
+  async function handleMediaUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+    event.target.value = "";
+
+    setIsUploadingMedia(true);
+    try {
+      const { cloudName, apiKey, timestamp, folder, signature } = await getUploadSignature();
+      const newItems: ProductImageInput[] = [];
+
+      for (const file of files) {
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`"${file.name}" exceeds 10MB maximum limit.`);
+          continue;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("api_key", apiKey);
+        formData.append("timestamp", String(timestamp));
+        formData.append("folder", folder);
+        formData.append("signature", signature);
+
+        const resourceType = file.type.startsWith("video/") ? "video" : "image";
+        const response = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
+          { method: "POST", body: formData }
+        );
+
+        if (!response.ok) {
+          toast.error(`Upload failed for "${file.name}".`);
+          continue;
+        }
+
+        const data = (await response.json()) as { public_id: string; secure_url: string };
+        newItems.push({
+          publicId: data.public_id,
+          url: data.secure_url,
+          isPrimary: uploadedMedia.length === 0 && newItems.length === 0,
+        });
+      }
+
+      if (newItems.length > 0) {
+        setUploadedMedia((prev) => [...prev, ...newItems]);
+        toast.success(`Successfully uploaded ${newItems.length} media file(s) to Cloudinary!`);
+      }
+    } catch {
+      toast.error("Could not upload to Cloudinary. Check network and try again.");
+    } finally {
+      setIsUploadingMedia(false);
+    }
+  }
+
+  function setAsPrimary(index: number) {
+    setUploadedMedia((prev) =>
+      prev.map((item, idx) => ({
+        ...item,
+        isPrimary: idx === index,
+      }))
+    );
+    toast.success("Updated primary storefront photo!");
+  }
+
+  function removeMedia(index: number) {
+    setUploadedMedia((prev) => {
+      const updated = prev.filter((_, idx) => idx !== index);
+      if (updated.length > 0 && !updated.some((item) => item.isPrimary)) {
+        updated[0].isPrimary = true;
+      }
+      return updated;
+    });
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -119,6 +223,7 @@ export function ProductForm({
       status: form.get("status") as ProductInput["status"],
       isFeatured: form.get("isFeatured") === "on",
       isBestseller: form.get("isBestseller") === "on",
+      images: uploadedMedia,
       variants: rows.map(({ id, size, color, sku, price, mrp, stock }) => ({
         id,
         size,
@@ -141,10 +246,12 @@ export function ProductForm({
     });
   }
 
-  const handleDelete = async () => {
+  async function handleDelete() {
     if (!product) return;
-    await deleteProduct(product.id);
-  };
+    startTransition(async () => {
+      await deleteProduct(product.id);
+    });
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
@@ -252,7 +359,139 @@ export function ProductForm({
         </div>
       </section>
 
-      {/* 2. Variants Section with EXPLICIT, VISIBLE LABELS */}
+      {/* 2. GALLERY IMAGERY & MEDIA UPLOAD (Cloudinary Live Zone) */}
+      <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-2xs space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-slate-950 tracking-tight">
+                Gallery Imagery &amp; Media (Cloudinary)
+              </h2>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                <CheckCircle2 className="size-3 text-emerald-600" />
+                Cloudinary Connected
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Upload rug detail photos and artisan weaving videos. Star icon marks the primary storefront cover image.
+            </p>
+          </div>
+
+          <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-full bg-[#bef264] px-4 text-xs font-bold text-slate-950 shadow-xs hover:bg-[#a3e635] active:scale-95 transition-all shrink-0">
+            {isUploadingMedia ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin text-slate-950" />
+                <span>Uploading...</span>
+              </>
+            ) : (
+              <>
+                <UploadCloud className="size-3.5 text-slate-950" />
+                <span>+ Upload Images &amp; Videos</span>
+              </>
+            )}
+            <input
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              disabled={isUploadingMedia || pending}
+              onChange={handleMediaUpload}
+              className="sr-only"
+            />
+          </label>
+        </div>
+
+        {/* Uploaded Gallery Grid */}
+        {uploadedMedia.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 pt-2">
+            {uploadedMedia.map((media, idx) => {
+              const isVideo = media.url.includes("/video/") || media.url.endsWith(".mp4");
+
+              return (
+                <div
+                  key={media.publicId || idx}
+                  className={`group relative aspect-square rounded-xl overflow-hidden border bg-slate-100 transition-all shadow-2xs ${
+                    media.isPrimary
+                      ? "ring-2 ring-[#bef264] border-transparent"
+                      : "border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  {isVideo ? (
+                    <div className="flex size-full items-center justify-center bg-slate-900 text-white">
+                      <Video className="size-8 text-[#bef264]" />
+                    </div>
+                  ) : (
+                    <Image
+                      src={media.url}
+                      alt="Rug Gallery Preview"
+                      fill
+                      unoptimized
+                      className="object-cover transition-transform group-hover:scale-105"
+                    />
+                  )}
+
+                  {/* Primary Badge */}
+                  {media.isPrimary && (
+                    <span className="absolute left-2 top-2 rounded-full bg-[#bef264] px-2 py-0.5 text-[9px] font-bold text-slate-950 shadow-xs uppercase tracking-wider">
+                      ★ Primary
+                    </span>
+                  )}
+
+                  {/* Hover Controls */}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAsPrimary(idx)}
+                      title={media.isPrimary ? "Primary cover photo" : "Set as primary"}
+                      className={`flex size-8 items-center justify-center rounded-lg shadow-sm transition-colors cursor-pointer ${
+                        media.isPrimary
+                          ? "bg-[#bef264] text-slate-950 font-bold"
+                          : "bg-white/80 text-slate-700 hover:bg-[#bef264] hover:text-slate-950"
+                      }`}
+                    >
+                      <Star className="size-4 fill-current" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => removeMedia(idx)}
+                      title="Remove media"
+                      className="flex size-8 items-center justify-center rounded-lg bg-rose-600 text-white shadow-sm hover:bg-rose-700 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-slate-400 bg-slate-50/50 hover:bg-slate-50 rounded-2xl p-8 text-center cursor-pointer transition-all">
+            <div className="flex size-12 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-500 shadow-2xs mb-3">
+              <ImageIcon className="size-6 text-slate-600" />
+            </div>
+            <p className="text-xs font-bold text-slate-900">
+              No photos or videos uploaded yet
+            </p>
+            <p className="mt-1 text-[11px] text-slate-500 max-w-sm">
+              Click anywhere in this box or the button above to upload rug imagery directly to your Cloudinary media library.
+            </p>
+            <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#bef264] px-4 py-1.5 text-xs font-bold text-slate-950 shadow-2xs">
+              <UploadCloud className="size-3.5" />
+              <span>Choose Files (Max 10MB)</span>
+            </span>
+            <input
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              disabled={isUploadingMedia || pending}
+              onChange={handleMediaUpload}
+              className="sr-only"
+            />
+          </label>
+        )}
+      </section>
+
+      {/* 3. Variants Section with EXPLICIT LABELS */}
       <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-2xs space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3">
           <div>
@@ -418,11 +657,11 @@ export function ProductForm({
         </p>
       )}
 
-      {/* 3. Action Toolbar */}
+      {/* 4. Action Toolbar */}
       <div className="flex flex-wrap items-center gap-3 pt-2">
         <Button
           type="submit"
-          disabled={pending}
+          disabled={pending || isUploadingMedia}
           className="h-10 rounded-full bg-[#bef264] px-8 text-xs font-bold text-slate-950 shadow-xs hover:bg-[#a3e635] transition-all cursor-pointer"
         >
           {pending ? "Saving..." : product ? "Save Changes" : "Create Product"}
