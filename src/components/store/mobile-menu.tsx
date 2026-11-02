@@ -6,6 +6,8 @@ import { useState } from "react";
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
+import { SiteSearch } from "./site-search";
+
 export function MobileMenu({ items }: { items: { label: string; href: string }[] }) {
   const [open, setOpen] = useState(false);
 
@@ -21,6 +23,7 @@ export function MobileMenu({ items }: { items: { label: string; href: string }[]
         <SheetHeader className="p-6">
           <SheetTitle className="text-2xl font-semibold tracking-tight">Menu</SheetTitle>
         </SheetHeader>
+        <SiteSearch className="mx-6" />
         <nav aria-label="Mobile" className="px-6">
           {items.map(({ label, href }) => (
             <Link

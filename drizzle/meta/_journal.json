@@ -29,6 +29,41 @@
       "when": 1793535480011,
       "tag": "0003_lethal_moira_mactaggert",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793550556937,
+      "tag": "0004_lethal_blizzard",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793550990389,
+      "tag": "0005_mean_captain_midlands",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793551457727,
+      "tag": "0006_shallow_trish_tilby",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793552279129,
+      "tag": "0007_little_toxin",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793553020338,
+      "tag": "0008_new_ultimatum",
+      "breakpoints": true
     }
   ]
 }

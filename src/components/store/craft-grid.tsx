@@ -2,11 +2,11 @@ import Link from "next/link";
 
 import { RugIllustration, type RugPalette } from "./rug-illustration";
 
-const crafts: { name: string; palette: RugPalette; medallion: boolean }[] = [
-  { name: "Hand Knotted", palette: "Ivory", medallion: true },
-  { name: "Hand Tufted", palette: "Sand", medallion: false },
-  { name: "Jute", palette: "Beige", medallion: false },
-  { name: "Shaggy", palette: "Charcoal", medallion: true },
+const crafts: { name: string; slug: string; palette: RugPalette; medallion: boolean }[] = [
+  { name: "Hand Knotted", slug: "hand-knotted", palette: "Ivory", medallion: true },
+  { name: "Hand Tufted", slug: "hand-tufted", palette: "Sand", medallion: false },
+  { name: "Jute", slug: "jute", palette: "Beige", medallion: false },
+  { name: "Shaggy", slug: "shaggy", palette: "Charcoal", medallion: true },
 ];
 
 export function CraftGrid() {
@@ -15,10 +15,10 @@ export function CraftGrid() {
       <div className="mx-auto max-w-7xl px-4 pt-20 sm:px-6 lg:px-8 lg:pt-32">
         <h2 className="text-title font-semibold">Shop by craft.</h2>
         <div className="mt-12 grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
-          {crafts.map(({ name, palette, medallion }) => (
+          {crafts.map(({ name, slug, palette, medallion }) => (
             <Link
               key={name}
-              href="#collection"
+              href={`/products?category=${slug}`}
               className="group relative block aspect-square overflow-hidden rounded-3xl bg-muted"
             >
               <RugIllustration

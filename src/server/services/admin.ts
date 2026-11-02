@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ilike, lte, or, sql, sum } from "drizzle-orm";
+import { and, count, desc, eq, ilike, lte, notInArray, or, sql, sum } from "drizzle-orm";
 
 import { db, withDbRetry } from "@/server/db";
 import {
@@ -6,9 +6,12 @@ import {
   orderItems,
   orders,
   orderStatus,
+  payments,
   productImages,
   products,
   productVariants,
+  returnRequests,
+  users,
 } from "@/server/db/schema";
 
 export const lowStockThreshold = 3;
@@ -42,14 +45,50 @@ export async function getDashboardData() {
       .select({ status: orders.status, total: count() })
       .from(orders)
       .groupBy(orders.status);
+    const [customers] = await db.select({ total: count() }).from(users);
+    const bestSellers = await db
+      .select({
+        title: orderItems.title,
+        units: sql<number>`sum(${orderItems.quantity})::int`,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .where(notInArray(orders.status, ["cancelled", "refunded"]))
+      .groupBy(orderItems.title)
+      .orderBy(desc(sql`sum(${orderItems.quantity})`))
+      .limit(5);
+    const revenueByDay = await db
+      .select({
+        day: sql<string>`to_char(${orders.createdAt} at time zone 'Asia/Kolkata', 'YYYY-MM-DD')`,
+        totalPaise: sql<number>`sum(${orders.totalPaise})::bigint`.mapWith(Number),
+      })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.paymentStatus, "paid"),
+          sql`${orders.createdAt} >= now() - interval '14 days'`,
+        ),
+      )
+      .groupBy(sql`to_char(${orders.createdAt} at time zone 'Asia/Kolkata', 'YYYY-MM-DD')`)
+      .orderBy(desc(sql`to_char(${orders.createdAt} at time zone 'Asia/Kolkata', 'YYYY-MM-DD')`));
+
+    const countFor = (statuses: string[]) =>
+      statusCounts
+        .filter(({ status }) => statuses.includes(status))
+        .reduce((total, row) => total + row.total, 0);
 
     return {
       orderCount: orderTotals.total,
       revenuePaise: Number(revenue.total ?? 0),
       productCount: productTotals.total,
+      customerCount: customers.total,
+      pendingCount: countFor(["pending", "confirmed", "processing", "packed"]),
+      completedCount: countFor(["delivered"]),
       lowStock,
       recentOrders,
       statusCounts,
+      bestSellers,
+      revenueByDay,
     };
   });
 }
@@ -89,11 +128,12 @@ export async function listCategories() {
         id: categories.id,
         name: categories.name,
         slug: categories.slug,
+        parentId: categories.parentId,
         productCount: count(products.id),
       })
       .from(categories)
       .leftJoin(products, eq(products.categoryId, categories.id))
-      .groupBy(categories.id, categories.name, categories.slug)
+      .groupBy(categories.id, categories.name, categories.slug, categories.parentId)
       .orderBy(categories.name),
   );
 }
@@ -145,6 +185,8 @@ export async function getAdminOrder(id: number) {
     const [order] = await db.select().from(orders).where(eq(orders.id, id));
     if (!order) return null;
     const items = await db.select().from(orderItems).where(eq(orderItems.orderId, id));
-    return { order, items };
+    const [returnRequest] = await db.select().from(returnRequests).where(eq(returnRequests.orderId, id));
+    const paymentRows = await db.select().from(payments).where(eq(payments.orderId, id));
+    return { order, items, returnRequest: returnRequest ?? null, payments: paymentRows };
   });
 }

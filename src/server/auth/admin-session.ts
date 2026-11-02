@@ -5,7 +5,9 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { db, withDbRetry } from "@/server/db";
-import { adminSessions, authAttempts } from "@/server/db/schema";
+import { adminSessions, adminUsers, auditLogs, authAttempts } from "@/server/db/schema";
+
+import { verifyPassword } from "./password";
 
 const cookieName = "ghe_admin_session";
 const sessionMs = 8 * 60 * 60 * 1000;
@@ -19,14 +21,32 @@ function safeEqual(left: string, right: string) {
   return timingSafeEqual(sha256(left), sha256(right));
 }
 
-export function credentialsMatch(email: string, password: string) {
+export type AdminRole = "owner" | "admin" | "staff";
+export type AdminIdentity = { email: string; role: AdminRole };
+
+const roleRank: Record<AdminRole, number> = { staff: 1, admin: 2, owner: 3 };
+
+export function hasRole(admin: AdminIdentity, required: AdminRole) {
+  return roleRank[admin.role] >= roleRank[required];
+}
+
+// The env login is the owner. Team members added in the panel log in from the database.
+export async function findAdmin(email: string, password: string): Promise<AdminIdentity | null> {
+  const normalized = email.trim().toLowerCase();
   const adminEmail = process.env.ADMIN_EMAIL;
   const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminEmail || !adminPassword) return false;
 
-  const emailMatches = safeEqual(email.trim().toLowerCase(), adminEmail.trim().toLowerCase());
-  const passwordMatches = safeEqual(password, adminPassword);
-  return emailMatches && passwordMatches;
+  if (adminEmail && adminPassword) {
+    const emailMatches = safeEqual(normalized, adminEmail.trim().toLowerCase());
+    const passwordMatches = safeEqual(password, adminPassword);
+    if (emailMatches && passwordMatches) return { email: normalized, role: "owner" };
+  }
+
+  const [user] = await withDbRetry(async () =>
+    db.select().from(adminUsers).where(eq(adminUsers.email, normalized)).limit(1),
+  );
+  if (!user?.isActive || !(await verifyPassword(password, user.passwordHash))) return null;
+  return { email: user.email, role: user.role };
 }
 
 // Returns false once the key has used its attempts inside the current window.
@@ -52,13 +72,15 @@ export async function clearAttempts(key: string) {
   await withDbRetry(async () => db.delete(authAttempts).where(eq(authAttempts.key, key)));
 }
 
-export async function createAdminSession() {
+export async function createAdminSession(admin: AdminIdentity) {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + sessionMs);
 
   await withDbRetry(async () => {
     await db.delete(adminSessions).where(lt(adminSessions.expiresAt, new Date()));
-    await db.insert(adminSessions).values({ tokenHash: sha256(token).toString("hex"), expiresAt });
+    await db
+      .insert(adminSessions)
+      .values({ tokenHash: sha256(token).toString("hex"), expiresAt, ...admin });
   });
 
   const cookieStore = await cookies();
@@ -71,14 +93,14 @@ export async function createAdminSession() {
   });
 }
 
-async function hasActiveSession() {
+export async function getAdmin(): Promise<AdminIdentity | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(cookieName)?.value;
-  if (!token) return false;
+  if (!token) return null;
 
   const [session] = await withDbRetry(async () =>
     db
-      .select({ tokenHash: adminSessions.tokenHash })
+      .select({ email: adminSessions.email, role: adminSessions.role })
       .from(adminSessions)
       .where(
         and(
@@ -87,11 +109,32 @@ async function hasActiveSession() {
         ),
       ),
   );
-  return Boolean(session);
+  return session ?? null;
 }
 
-export async function requireAdmin() {
-  if (!(await hasActiveSession())) redirect("/admin/login");
+export async function requireAdmin(required: AdminRole = "staff") {
+  const admin = await getAdmin();
+  if (!admin) redirect("/admin/login");
+  if (!hasRole(admin, required)) redirect("/admin");
+  return admin;
+}
+
+export async function logAdminAction(
+  admin: AdminIdentity,
+  action: string,
+  entity: string,
+  entityId?: string | number,
+  details?: string,
+) {
+  await withDbRetry(async () =>
+    db.insert(auditLogs).values({
+      actor: admin.email,
+      action,
+      entity,
+      entityId: entityId === undefined ? null : String(entityId),
+      details,
+    }),
+  );
 }
 
 export async function destroyAdminSession() {

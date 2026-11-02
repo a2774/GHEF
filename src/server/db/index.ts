@@ -56,13 +56,16 @@ export const db = drizzle({ client: pool, schema });
 
 const transientCodes = new Set(["ECONNRESET", "ETIMEDOUT", "EPIPE", "08P01", "57P01"]);
 
-function isTransient(error: unknown) {
-  const cause = (error as { cause?: unknown })?.cause ?? error;
-  const { code, message } = cause as { code?: string; message?: string };
+const transientMessage = /connection terminated|timeout exceeded when trying to connect/i;
+
+function isTransient(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+
+  const { code, message, cause } = error as { code?: string; message?: string; cause?: unknown };
   return (
     (code !== undefined && transientCodes.has(code)) ||
-    message === "Connection terminated unexpectedly" ||
-    message === "timeout exceeded when trying to connect"
+    transientMessage.test(message ?? "") ||
+    isTransient(cause)
   );
 }
 

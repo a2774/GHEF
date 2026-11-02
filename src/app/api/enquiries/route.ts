@@ -13,7 +13,7 @@ function cleanText(value: unknown, maxLength: number) {
 export async function POST(request: Request) {
   const forwardedFor = request.headers.get("x-forwarded-for") ?? "local";
   const ip = forwardedFor.split(",")[0].trim();
-  const allowed = await consumeAttempt(`enquiry:${ip}`, 5);
+  const allowed = await consumeAttempt(`enquiry:${ip}`, 10);
   if (!allowed) {
     return NextResponse.json(
       { error: "Too many requests. Please try again later." },

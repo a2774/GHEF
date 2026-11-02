@@ -7,7 +7,7 @@ Requirements ke liye [PRD.md](PRD.md) dekhein. Samay andaze hain, aur ek develop
 | Phase | Kaam | Andaza | Status |
 |---|---|---|---|
 | 0 | Foundation | 2-3 din | 🟨 |
-| 1 | Backend + admin core | 1-2 hafte | ⬜ |
+| 1 | Backend + admin core | 1-2 hafte | ✅ |
 | 2 | Storefront | 1-2 hafte | ⬜ |
 | 3 | Cart, checkout, payment | 1 hafta | ⬜ |
 | 4 | Order management + accounts | 1 hafta | ⬜ |
@@ -31,13 +31,15 @@ Requirements ke liye [PRD.md](PRD.md) dekhein. Samay andaze hain, aur ek develop
 
 ## Phase 1: Backend + admin core
 
-- [ ] Poora database schema aur migrations
-- [ ] Sample data (seed)
-- [ ] Admin login aur role check
-- [ ] Admin layout aur dashboard
-- [ ] Product CRUD, size-wise variants ke saath
-- [ ] Image upload
-- [ ] Categories aur collections
+- [x] Poora database schema aur migrations
+- [x] Sample data (seed)
+- [x] Admin login aur session protection
+- [x] Admin layout aur dashboard
+- [x] Product CRUD, size-wise variants ke saath
+- [x] Cloudinary image upload
+- [x] Categories
+- [x] Order management screens (real orders checkout ke baad aayenge)
+- [ ] Alag collections, agar categories kaafi na hon
 
 **Done jab:** owner bina code ke product daal sake aur wo database mein save ho.
 

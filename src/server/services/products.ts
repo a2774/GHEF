@@ -5,7 +5,7 @@ import { categories, productImages, products, productVariants } from "@/server/d
 
 export type ProductSummary = Awaited<ReturnType<typeof getFeaturedProducts>>[number];
 
-export async function getFeaturedProducts(limit = 4) {
+export async function getFeaturedProducts(limit = 8) {
   return withDbRetry(async () =>
     db
       .select({
@@ -34,8 +34,9 @@ export async function getFeaturedProducts(limit = 4) {
         products.material,
         categories.name,
         productImages.publicId,
+        products.createdAt,
       )
-      .orderBy(asc(products.title))
+      .orderBy(desc(products.createdAt))
       .limit(limit),
   );
 }

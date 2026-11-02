@@ -4,7 +4,7 @@ import { and, asc, eq, notInArray, sql } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { requireAdmin } from "@/server/auth/admin-session";
+import { logAdminAction, requireAdmin } from "@/server/auth/admin-session";
 import { db, withDbRetry } from "@/server/db";
 import { categories, productImages, products, productVariants } from "@/server/db/schema";
 import {
@@ -88,7 +88,7 @@ function isUniqueViolation(error: unknown) {
 }
 
 export async function saveProduct(input: ProductInput) {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const validationError = validate(input);
   if (validationError) return validationError;
@@ -154,19 +154,24 @@ export async function saveProduct(input: ProductInput) {
     throw error;
   }
 
+  await logAdminAction(admin, input.id ? "update" : "create", "product", productId, values.title);
   refreshStorefront(productId);
   if (!input.id) redirect(`/admin/products/${productId}`);
   return null;
 }
 
 export async function deleteProduct(id: number) {
-  await requireAdmin();
+  const admin = await requireAdmin("admin");
 
   const images = await withDbRetry(async () =>
     db.select().from(productImages).where(eq(productImages.productId, id)),
   );
   await withDbRetry(async () => db.delete(products).where(eq(products.id, id)));
+
   await Promise.allSettled(images.map(({ publicId }) => destroyImage(publicId)));
+
+  await logAdminAction(admin, "delete", "product", id);
+
 
   refreshStorefront();
   redirect("/admin/products");
@@ -253,10 +258,11 @@ export async function createCategory(form: FormData) {
 
   const name = String(form.get("name") ?? "").trim();
   const slug = slugify(name);
+  const parentId = Number(form.get("parentId")) || null;
   if (!slug) return;
 
   await withDbRetry(async () =>
-    db.insert(categories).values({ name, slug }).onConflictDoNothing(),
+    db.insert(categories).values({ name, slug, parentId }).onConflictDoNothing(),
   );
   revalidatePath("/admin/categories");
 }
@@ -264,10 +270,13 @@ export async function createCategory(form: FormData) {
 export async function deleteCategory(id: number) {
   await requireAdmin();
 
-  const [inUse] = await withDbRetry(async () =>
-    db.select({ id: products.id }).from(products).where(eq(products.categoryId, id)).limit(1),
+  const [inUse, hasChildren] = await withDbRetry(async () =>
+    Promise.all([
+      db.select({ id: products.id }).from(products).where(eq(products.categoryId, id)).limit(1),
+      db.select({ id: categories.id }).from(categories).where(eq(categories.parentId, id)).limit(1),
+    ]),
   );
-  if (inUse) return;
+  if (inUse.length > 0 || hasChildren.length > 0) return;
 
   await withDbRetry(async () => db.delete(categories).where(eq(categories.id, id)));
   revalidatePath("/admin/categories");
