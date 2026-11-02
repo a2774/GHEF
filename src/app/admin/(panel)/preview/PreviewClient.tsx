@@ -2,12 +2,9 @@
 
 import { useState } from "react";
 import {
-  Check,
   CheckCircle2,
   ExternalLink,
-  Eye,
   Laptop,
-  Maximize2,
   RotateCcw,
   Save,
   ShieldCheck,
@@ -16,7 +13,6 @@ import {
   Tablet,
   Truck,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

@@ -2,9 +2,6 @@
 
 import { useState } from "react";
 import {
-  Activity,
-  AlertCircle,
-  ArrowRight,
   Check,
   CheckCircle2,
   Copy,
@@ -12,8 +9,6 @@ import {
   Key,
   RefreshCw,
   Search,
-  Shield,
-  ShieldAlert,
   ShieldCheck,
   Zap,
 } from "lucide-react";
