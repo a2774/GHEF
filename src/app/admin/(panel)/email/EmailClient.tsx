@@ -2,12 +2,7 @@
 
 import { useState } from "react";
 import {
-  AlertCircle,
-  ArrowUpRight,
-  Check,
   CheckCircle2,
-  Clock,
-  ExternalLink,
   Flame,
   Mail,
   RefreshCw,
