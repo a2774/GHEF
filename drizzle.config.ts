@@ -15,7 +15,9 @@ if (!rawUrl) {
 
 // Migrations prefer a direct unpooled connection, but fall back to DATABASE_URL.
 const connectionUrl = new URL(rawUrl);
-connectionUrl.searchParams.set("sslmode", "require");
+if (connectionUrl.hostname !== "localhost" && connectionUrl.hostname !== "127.0.0.1") {
+  connectionUrl.searchParams.set("sslmode", "require");
+}
 
 export default defineConfig({
   dialect: "postgresql",
