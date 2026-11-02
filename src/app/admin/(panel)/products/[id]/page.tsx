@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { ImageManager } from "@/components/admin/image-manager";
 import { ProductForm } from "@/components/admin/product-form";
 import { requireAdmin } from "@/server/auth/admin-session";
 import { getAdminProduct, listCategories } from "@/server/services/admin";
@@ -22,11 +21,15 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
           {result.product.title}
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          Edit specifications, upload gallery photos, and update variant sizing & inventory.
+          Edit specifications, upload gallery photos, and update variant sizing &amp; inventory.
         </p>
       </div>
-      <ImageManager productId={result.product.id} images={result.images} />
-      <ProductForm categories={categories} product={result.product} variants={result.variants} />
+      <ProductForm
+        categories={categories}
+        product={result.product}
+        variants={result.variants}
+        initialImages={result.images}
+      />
     </div>
   );
 }

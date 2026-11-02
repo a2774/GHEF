@@ -156,19 +156,52 @@ export async function saveProduct(input: ProductInput) {
           }
         }
 
-        // Save newly uploaded images on product creation
-        if (input.images && input.images.length > 0) {
-          for (let i = 0; i < input.images.length; i++) {
-            const img = input.images[i];
-            await tx
-              .insert(productImages)
-              .values({
-                productId: savedId,
-                publicId: img.publicId,
-                url: img.url,
-                isPrimary: img.isPrimary ?? i === 0,
-              })
-              .onConflictDoNothing();
+        // Sync / save uploaded images
+        if (input.images !== undefined) {
+          if (input.id) {
+            const keptPublicIds = input.images.map((img) => img.publicId).filter(Boolean);
+            if (keptPublicIds.length > 0) {
+              await tx
+                .delete(productImages)
+                .where(
+                  and(
+                    eq(productImages.productId, savedId),
+                    notInArray(productImages.publicId, keptPublicIds),
+                  ),
+                );
+            } else {
+              await tx.delete(productImages).where(eq(productImages.productId, savedId));
+            }
+
+            for (let i = 0; i < input.images.length; i++) {
+              const img = input.images[i];
+              const isPrimary = img.isPrimary ?? i === 0;
+              await tx
+                .insert(productImages)
+                .values({
+                  productId: savedId,
+                  publicId: img.publicId,
+                  url: img.url,
+                  isPrimary,
+                })
+                .onConflictDoUpdate({
+                  target: productImages.publicId,
+                  set: { isPrimary, url: img.url },
+                });
+            }
+          } else if (input.images.length > 0) {
+            for (let i = 0; i < input.images.length; i++) {
+              const img = input.images[i];
+              await tx
+                .insert(productImages)
+                .values({
+                  productId: savedId,
+                  publicId: img.publicId,
+                  url: img.url,
+                  isPrimary: img.isPrimary ?? i === 0,
+                })
+                .onConflictDoNothing();
+            }
           }
         }
       }),
