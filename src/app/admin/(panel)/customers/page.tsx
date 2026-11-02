@@ -33,7 +33,7 @@ export default async function AdminCustomersPage({
           ? or(ilike(users.name, term), ilike(users.email, term), ilike(users.phone, term))
           : undefined,
       )
-      .groupBy(users.id)
+      .groupBy(users.id, users.name, users.email, users.phone, users.createdAt)
       .orderBy(desc(users.createdAt))
       .limit(100),
   );
