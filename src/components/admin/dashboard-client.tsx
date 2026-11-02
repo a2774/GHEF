@@ -4,19 +4,30 @@ import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
+  Boxes,
   Calendar,
   Check,
   ChevronDown,
+  Clock,
+  CreditCard,
   DollarSign,
   ExternalLink,
+  FileText,
   Filter,
   Layers,
+  LayoutDashboard,
+  LifeBuoy,
+  MessageSquareText,
   Package,
   Plus,
   RotateCw,
+  ShieldCheck,
   ShoppingBag,
+  ShoppingCart,
+  Sparkles,
   TrendingUp,
   Users,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,6 +35,7 @@ import { useRouter } from "next/navigation";
 import { OrderTable } from "@/components/admin/order-table";
 import { formatPaise } from "@/lib/format";
 import type { getDashboardData } from "@/server/services/admin";
+import { useAdminMode } from "@/components/admin/admin-mode-context";
 
 export type TimeRangeKey = "24h" | "7d" | "30d" | "90d" | "365d" | "custom";
 
@@ -33,6 +45,8 @@ interface DashboardClientProps {
 
 export function DashboardClient({ initialData }: DashboardClientProps) {
   const router = useRouter();
+  const { mode, setMode, isPro } = useAdminMode();
+
   const [selectedRange, setSelectedRange] = useState<TimeRangeKey>("30d");
   const [activeChartTab, setActiveChartTab] = useState<"revenue" | "orders">("revenue");
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -64,7 +78,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     }, 700);
   };
 
-  // Generate date points for chart based on selected range
+  // Generate date points for chart based on selected range (used in Pro mode)
   const chartTimeline = useMemo(() => {
     const totalPaise = initialData.revenuePaise || 28500000;
     const totalOrders = initialData.orderCount || 42;
@@ -90,7 +104,6 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     }
 
     if (selectedRange === "30d") {
-      // 6 time blocks over 30 days
       return [
         { label: "Day 1-5", revenuePaise: Math.round(totalPaise * 0.14), orders: Math.max(1, Math.round(totalOrders * 0.14)) },
         { label: "Day 6-10", revenuePaise: Math.round(totalPaise * 0.16), orders: Math.max(1, Math.round(totalOrders * 0.16)) },
@@ -125,7 +138,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     ];
   }, [selectedRange, initialData.revenuePaise, initialData.orderCount, customStartDate, customEndDate]);
 
-  // Scaled metrics based on active filter
+  // Scaled metrics based on active filter (used in Pro mode)
   const metrics = useMemo(() => {
     const multiplierMap: Record<TimeRangeKey, number> = {
       "24h": 0.04,
@@ -150,13 +163,12 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     };
   }, [selectedRange, initialData]);
 
-  // SVG Chart Computations
+  // SVG Chart Computations for Pro mode
   const maxRevenue = Math.max(...chartTimeline.map((p) => p.revenuePaise), 1);
   const maxOrders = Math.max(...chartTimeline.map((p) => p.orders), 1);
   const chartHeight = 160;
   const chartWidth = 560;
 
-  // Build SVG path for smooth area chart
   const points = chartTimeline.map((p, i) => {
     const x = (i / (chartTimeline.length - 1 || 1)) * (chartWidth - 40) + 20;
     const val = activeChartTab === "revenue" ? p.revenuePaise : p.orders;
@@ -172,27 +184,322 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     ? `M ${points.map((p) => `${p.x} ${p.y}`).join(" L ")}`
     : "";
 
+  /* =========================================================================
+     🌿 NORMAL MODE: Focused Daily Operations Dashboard (Fulfillment & Stock)
+     ========================================================================= */
+  if (!isPro) {
+    return (
+      <div className={`space-y-7 pb-12 transition-opacity duration-200 ${isRefreshing ? "opacity-75" : "opacity-100"}`}>
+        {/* Normal Mode Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-5">
+          <div>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-950">
+                Daily Operations
+              </h1>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 border border-emerald-300 px-3 py-0.5 text-xs font-bold text-emerald-900 shadow-2xs">
+                <span>🌿</span>
+                <span>Normal Mode</span>
+              </span>
+            </div>
+            <p className="mt-1 text-xs sm:text-sm text-slate-500">
+              Clean, focused control for pack & ship fulfillment, inventory restock, and buyer inquiries.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Sync Refresh */}
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              aria-label="Refresh dashboard data"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-slate-950 active:scale-95 disabled:opacity-60 transition-all cursor-pointer"
+            >
+              <RotateCw
+                className={`size-3.5 text-slate-500 transition-transform duration-500 ${
+                  isRefreshing ? "animate-spin text-slate-900" : ""
+                }`}
+              />
+              <span>{isRefreshing ? "Syncing..." : "Refresh"}</span>
+              <span className="hidden sm:inline text-[10px] font-normal text-slate-400">
+                • {lastRefreshedAt}
+              </span>
+            </button>
+
+            {/* Quick Switcher to Pro */}
+            <button
+              type="button"
+              onClick={() => setMode("pro")}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#0B132B] px-3.5 py-2 text-xs font-bold text-[#bef264] shadow-xs hover:bg-slate-800 active:scale-95 transition-all cursor-pointer"
+            >
+              <Zap className="size-3.5 fill-[#bef264]" />
+              <span>Switch to Pro Mode</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Daily Fast Action Station */}
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-xs">
+          <div className="flex items-center justify-between mb-3.5">
+            <div className="flex items-center gap-2">
+              <span className="flex size-2 rounded-full bg-emerald-500 animate-pulse" />
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                Daily Operations Quick Actions
+              </h2>
+            </div>
+            <span className="text-[11px] font-mono text-slate-400">Fast-track tools</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <Link
+              href="/admin/orders"
+              className="group flex items-center justify-between p-3.5 rounded-xl border border-slate-200/90 hover:border-slate-300 bg-slate-50/60 hover:bg-white transition-all shadow-2xs"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-blue-100 text-blue-700 group-hover:scale-105 transition-transform">
+                  <ShoppingCart className="size-4.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-slate-900 truncate">Pack & Dispatch</p>
+                  <p className="text-[11px] text-slate-500 truncate">{initialData.pendingCount} pending orders</p>
+                </div>
+              </div>
+              <ArrowUpRight className="size-4 text-slate-400 group-hover:text-slate-900 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </Link>
+
+            <Link
+              href="/admin/inventory"
+              className="group flex items-center justify-between p-3.5 rounded-xl border border-slate-200/90 hover:border-slate-300 bg-slate-50/60 hover:bg-white transition-all shadow-2xs"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-amber-100 text-amber-700 group-hover:scale-105 transition-transform">
+                  <Boxes className="size-4.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-slate-900 truncate">Adjust Inventory</p>
+                  <p className="text-[11px] text-slate-500 truncate">{initialData.lowStock.length} low stock alerts</p>
+                </div>
+              </div>
+              <ArrowUpRight className="size-4 text-slate-400 group-hover:text-slate-900 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </Link>
+
+            <Link
+              href="/admin/enquiries"
+              className="group flex items-center justify-between p-3.5 rounded-xl border border-slate-200/90 hover:border-slate-300 bg-slate-50/60 hover:bg-white transition-all shadow-2xs"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-purple-100 text-purple-700 group-hover:scale-105 transition-transform">
+                  <MessageSquareText className="size-4.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-slate-900 truncate">Bespoke Quotes</p>
+                  <p className="text-[11px] text-slate-500 truncate">{initialData.newEnquiryCount} unread requests</p>
+                </div>
+              </div>
+              <ArrowUpRight className="size-4 text-slate-400 group-hover:text-slate-900 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </Link>
+
+            <Link
+              href="/admin/products/new"
+              className="group flex items-center justify-between p-3.5 rounded-xl border border-slate-200/90 hover:border-slate-300 bg-[#bef264]/10 hover:bg-[#bef264]/20 transition-all shadow-2xs"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-[#bef264] text-slate-950 font-bold group-hover:scale-105 transition-transform">
+                  <Plus className="size-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-slate-950 truncate">Add New Rug</p>
+                  <p className="text-[11px] text-slate-600 truncate">Create rug listing</p>
+                </div>
+              </div>
+              <ArrowUpRight className="size-4 text-slate-700 group-hover:text-slate-950 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </Link>
+          </div>
+        </div>
+
+        {/* 4 Focused Daily Operations Cards */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <span>Orders to Pack</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                initialData.pendingCount > 0 ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+              }`}>
+                {initialData.pendingCount > 0 ? "ACTION NEEDED" : "ALL PACKED"}
+              </span>
+            </div>
+            <div className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+              {initialData.pendingCount.toLocaleString("en-IN")}
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+              Orders awaiting packaging & tracking code
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <span>Low Stock Alerts</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                initialData.lowStock.length > 0 ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"
+              }`}>
+                {initialData.lowStock.length > 0 ? "RESTOCK" : "HEALTHY"}
+              </span>
+            </div>
+            <div className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+              {initialData.lowStock.length.toLocaleString("en-IN")}
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+              Handmade rug variants ≤ 3 in stock
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <span>Custom Inquiries</span>
+              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-800">
+                BESPOKE
+              </span>
+            </div>
+            <div className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+              {initialData.newEnquiryCount.toLocaleString("en-IN")}
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+              Unread buyer quote & custom dimensions requests
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <span>Active Catalog</span>
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                LIVE
+              </span>
+            </div>
+            <div className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+              {initialData.productCount.toLocaleString("en-IN")}
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+              Handcrafted rugs published on storefront
+            </p>
+          </div>
+        </div>
+
+        {/* Warehouse Inventory Alerts */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <Boxes className="size-4.5 text-amber-600" />
+              <span>Warehouse Stock Alerts</span>
+            </h2>
+            <Link
+              href="/admin/inventory"
+              className="text-xs font-semibold text-slate-700 hover:text-slate-950 flex items-center gap-1"
+            >
+              <span>Manage stock counts</span>
+              <ArrowUpRight className="size-3.5" />
+            </Link>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
+            {initialData.lowStock.length > 0 ? (
+              <div className="space-y-3">
+                {initialData.lowStock.map((variant) => (
+                  <div
+                    key={variant.id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3 last:border-0 last:pb-0"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-slate-900">
+                          {variant.title}
+                        </span>
+                        <span className="text-[11px] font-mono text-slate-500">
+                          (Color: {variant.color ?? "Standard"}, Size: {variant.size ?? "Standard"})
+                        </span>
+                      </div>
+                      <p className="text-xs text-rose-600 font-medium mt-0.5">
+                        Warehouse critical: Only {variant.stock} unit{variant.stock === 1 ? "" : "s"} remaining
+                      </p>
+                    </div>
+
+                    <Link
+                      href="/admin/inventory"
+                      className="inline-flex items-center gap-1 self-start sm:self-auto rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors"
+                    >
+                      <span>Update Stock</span>
+                      <ArrowUpRight className="size-3" />
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 py-2 text-emerald-800">
+                <Check className="size-5 text-emerald-600" />
+                <div>
+                  <p className="text-xs font-bold text-slate-900">Warehouse Inventory Healthy</p>
+                  <p className="text-xs text-slate-500">All rug variants meet safe minimum thresholds.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Orders to Fulfill */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <ShoppingCart className="size-4.5 text-blue-600" />
+              <span>Recent Orders & Fulfillment</span>
+            </h2>
+            <Link
+              href="/admin/orders"
+              className="text-xs font-semibold text-slate-700 hover:text-slate-950 flex items-center gap-1"
+            >
+              <span>View all orders</span>
+              <ArrowUpRight className="size-3.5" />
+            </Link>
+          </div>
+
+          <OrderTable rows={initialData.recentOrders} />
+        </div>
+      </div>
+    );
+  }
+
+  /* =========================================================================
+     ⚡ PRO MODE: Full Power Enterprise Control (Telemetry & Financials)
+     ========================================================================= */
   return (
     <div className={`space-y-8 pb-12 transition-opacity duration-200 ${isRefreshing ? "opacity-75" : "opacity-100"}`}>
-      {/* 1. Header with Live Refresh & Date Filters */}
+      {/* 1. Header with Mode Badge, Live Refresh & Date Filters */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-slate-200/80 pb-6">
         <div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-950">
-              Overview
+              Overview & Telemetry
             </h1>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-[#bef264]/40 border border-[#bef264] px-2.5 py-0.5 text-[11px] font-bold text-slate-950">
               <span className="size-1.5 rounded-full bg-emerald-600 animate-pulse" />
-              Live Operations
+              ⚡ Pro Mode Active
             </span>
           </div>
           <p className="mt-1 text-sm text-slate-500">
-            Real-time analytics, inventory signals, and fulfillment tracking for Ganga Handmade Export.
+            Real-time financial telemetry, attribution models, Razorpay gateway health, and audit logs.
           </p>
         </div>
 
         {/* Global Action Toolbar */}
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Switch to Normal Mode Button */}
+          <button
+            type="button"
+            onClick={() => setMode("normal")}
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-all cursor-pointer"
+          >
+            <span>🌿 Normal Mode</span>
+          </button>
+
           {/* Refresh Button */}
           <button
             type="button"
@@ -261,6 +568,53 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
             <span>New Product</span>
           </Link>
         </div>
+      </div>
+
+      {/* Pro Fast Telemetry Shortcuts Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Link
+          href="/admin/traffic"
+          className="group flex items-center justify-between p-3 rounded-xl border border-slate-200/90 bg-white hover:border-slate-300 shadow-2xs hover:shadow-xs transition-all"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <TrendingUp className="size-4 text-emerald-600 shrink-0" />
+            <span className="text-xs font-bold text-slate-800 truncate">Traffic & Attribution</span>
+          </div>
+          <ArrowUpRight className="size-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
+        </Link>
+
+        <Link
+          href="/admin/razorpay"
+          className="group flex items-center justify-between p-3 rounded-xl border border-slate-200/90 bg-white hover:border-slate-300 shadow-2xs hover:shadow-xs transition-all"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <CreditCard className="size-4 text-blue-600 shrink-0" />
+            <span className="text-xs font-bold text-slate-800 truncate">Razorpay Telemetry</span>
+          </div>
+          <ArrowUpRight className="size-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
+        </Link>
+
+        <Link
+          href="/admin/abandoned"
+          className="group flex items-center justify-between p-3 rounded-xl border border-slate-200/90 bg-white hover:border-slate-300 shadow-2xs hover:shadow-xs transition-all"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <ShoppingBag className="size-4 text-amber-600 shrink-0" />
+            <span className="text-xs font-bold text-slate-800 truncate">Abandoned Carts</span>
+          </div>
+          <ArrowUpRight className="size-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
+        </Link>
+
+        <Link
+          href="/admin/audit"
+          className="group flex items-center justify-between p-3 rounded-xl border border-slate-200/90 bg-white hover:border-slate-300 shadow-2xs hover:shadow-xs transition-all"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <ShieldCheck className="size-4 text-purple-600 shrink-0" />
+            <span className="text-xs font-bold text-slate-800 truncate">System Audit Trail</span>
+          </div>
+          <ArrowUpRight className="size-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
+        </Link>
       </div>
 
       {/* Custom Date Range Popover/Drawer */}
@@ -470,7 +824,6 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
                   onMouseEnter={() => setHoveredPointIndex(i)}
                   onMouseLeave={() => setHoveredPointIndex(null)}
                 />
-                {/* X-axis label */}
                 <text
                   x={p.x}
                   y={chartHeight + 10}

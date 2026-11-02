@@ -80,11 +80,16 @@ export function ImageManager({
   }
 
   return (
-    <section className="rounded-2xl bg-muted p-5">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-2xl font-semibold tracking-tight">Images</h2>
-        <label className="inline-flex h-10 cursor-pointer items-center rounded-full bg-primary px-5 text-base text-primary-foreground has-focus-visible:ring-3 has-focus-visible:ring-ring/50">
-          {pending ? "Working..." : "Upload images"}
+    <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-2xs space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
+        <div>
+          <h2 className="text-lg font-bold text-slate-950 tracking-tight">Gallery Imagery</h2>
+          <p className="mt-0.5 text-xs text-slate-500">
+            High-resolution photography for store detail and zoom experience. First image or starred is primary.
+          </p>
+        </div>
+        <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-full bg-[#bef264] px-4 text-xs font-bold text-slate-950 shadow-xs hover:bg-[#a3e635] transition-all shrink-0">
+          <span>{pending ? "Uploading..." : "+ Upload Images"}</span>
           <input
             type="file"
             accept="image/*"
@@ -97,26 +102,28 @@ export function ImageManager({
       </div>
 
       {error && (
-        <p role="alert" className="mt-3 text-base text-destructive">
+        <p role="alert" className="text-xs text-rose-600 bg-rose-50 border border-rose-200 p-2.5 rounded-xl font-medium">
           {error}
         </p>
       )}
 
       {images.length === 0 ? (
-        <p className="mt-3 text-lg text-muted-foreground">No images yet. The storefront shows an illustration.</p>
+        <div className="py-8 text-center text-xs text-slate-400 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
+          No images uploaded yet. The storefront displays an artisanal weave illustration.
+        </div>
       ) : (
-        <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {images.map((image) => (
-            <li key={image.id} className="overflow-hidden rounded-xl bg-background">
+            <li key={image.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs group relative">
               <CldImage
                 src={image.publicId}
                 alt={image.alt || "Product image"}
                 width={320}
                 height={320}
                 crop="fill"
-                className="aspect-square w-full object-cover"
+                className="aspect-square w-full object-cover transition-transform group-hover:scale-105"
               />
-              <div className="flex items-center justify-between p-1.5">
+              <div className="flex items-center justify-between p-2 bg-white/95 border-t border-slate-100">
                 <Button
                   type="button"
                   variant="ghost"
@@ -129,9 +136,14 @@ export function ImageManager({
                       "Set as primary product photo"
                     )
                   }
-                  className="size-11 cursor-pointer"
+                  className={`h-7 px-2 text-xs font-semibold rounded-md cursor-pointer ${
+                    image.isPrimary
+                      ? "text-amber-500 bg-amber-50"
+                      : "text-slate-400 hover:text-amber-500"
+                  }`}
                 >
-                  <Star className={image.isPrimary ? "fill-current" : undefined} />
+                  <Star className={`size-3.5 mr-1 ${image.isPrimary ? "fill-amber-400 text-amber-500" : ""}`} />
+                  <span className="text-[10px]">{image.isPrimary ? "Primary" : "Star"}</span>
                 </Button>
 
                 <ConfirmDeleteDialog
@@ -148,9 +160,9 @@ export function ImageManager({
                       variant="ghost"
                       aria-label="Delete image"
                       disabled={pending}
-                      className="size-11 cursor-pointer text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                      className="size-7 p-0 cursor-pointer text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
                     >
-                      <Trash2 />
+                      <Trash2 className="size-3.5" />
                     </Button>
                   }
                 />

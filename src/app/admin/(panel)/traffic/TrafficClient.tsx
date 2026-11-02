@@ -36,7 +36,7 @@ function InstagramIcon({ className }: { className?: string }) {
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-type RangeKey = "today" | "7d" | "30d" | "90d" | "all";
+type RangeKey = "24h" | "7d" | "30d" | "90d" | "365d" | "custom";
 
 interface TrafficSource {
   name: string;
@@ -65,8 +65,8 @@ const RANGE_DATA: Record<
     topPages: { path: string; title: string; views: number; orders: number; bounceRate: string }[];
   }
 > = {
-  today: {
-    label: "Today",
+  "24h": {
+    label: "24 hrs",
     visitors: 1840,
     unique: 1420,
     revenue: 64500,
@@ -195,14 +195,12 @@ const RANGE_DATA: Record<
       { name: "Tablet", percentage: 5, visits: 8410, icon: "tablet" },
     ],
     topPages: [
-      { path: "/products/heritage-wool-rug", title: "Mirzapur Heritage Hand-Tufted Wool Rug", views: 36200, orders: 328, bounceRate: "25%" },
-      { path: "/", title: "Homepage - Ganga Handmade Rugs", views: 56400, orders: 215, bounceRate: "21%" },
-      { path: "/products/bhadohi-persian-motif", title: "Bhadohi Traditional Persian Motif 8x10", views: 28900, orders: 254, bounceRate: "27%" },
+      { path: "/products/heritage-wool-rug", title: "Mirzapur Heritage Hand-Tufted Wool Rug", views: 28900, orders: 254, bounceRate: "27%" },
       { path: "/products/organic-jute-cotton-runner", title: "Organic Jute & Handspun Cotton Runner", views: 23600, orders: 362, bounceRate: "30%" },
     ],
   },
-  all: {
-    label: "All Time",
+  "365d": {
+    label: "365 Days",
     visitors: 342000,
     unique: 258000,
     revenue: 11840000,
@@ -232,6 +230,37 @@ const RANGE_DATA: Record<
       { path: "/", title: "Homepage - Ganga Handmade Rugs", views: 114000, orders: 440, bounceRate: "20%" },
       { path: "/products/bhadohi-persian-motif", title: "Bhadohi Traditional Persian Motif 8x10", views: 58900, orders: 512, bounceRate: "27%" },
       { path: "/products/organic-jute-cotton-runner", title: "Organic Jute & Handspun Cotton Runner", views: 48600, orders: 740, bounceRate: "29%" },
+    ],
+  },
+  custom: {
+    label: "Custom",
+    visitors: 48500,
+    unique: 39100,
+    revenue: 1620000,
+    conversion: 3.3,
+    liveNow: 16,
+    growth: 18.2,
+    chartDays: [
+      { day: "W1", visits: 11200, sales: 380000 },
+      { day: "W2", visits: 12400, sales: 410000 },
+      { day: "W3", visits: 11900, sales: 395000 },
+      { day: "W4", visits: 13000, sales: 435000 },
+    ],
+    sources: [
+      { name: "Google Organic", category: "Search (SEO)", visits: 18900, revenue: 630000, conversion: 3.3, share: 39, icon: "search", color: "text-amber-500 bg-amber-500/10 border-amber-500/20" },
+      { name: "Instagram & Meta Ads", category: "Social Campaigns", visits: 13100, revenue: 437000, conversion: 2.8, share: 27, icon: "instagram", color: "text-pink-500 bg-pink-500/10 border-pink-500/20" },
+      { name: "WhatsApp Business", category: "Direct Inquiries", visits: 7800, revenue: 259000, conversion: 3.6, share: 16, icon: "whatsapp", color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" },
+      { name: "Architect & Designer Referrals", category: "B2B Trade", visits: 4800, revenue: 194000, conversion: 2.2, share: 10, icon: "share", color: "text-violet-500 bg-violet-500/10 border-violet-500/20" },
+      { name: "Direct / Bookmarks", category: "Brand Direct", visits: 3900, revenue: 100000, conversion: 1.5, share: 8, icon: "globe", color: "text-blue-500 bg-blue-500/10 border-blue-500/20" },
+    ],
+    devices: [
+      { name: "Mobile", percentage: 65, visits: 31525, icon: "mobile" },
+      { name: "Desktop", percentage: 30, visits: 14550, icon: "desktop" },
+      { name: "Tablet", percentage: 5, visits: 2425, icon: "tablet" },
+    ],
+    topPages: [
+      { path: "/products/heritage-wool-rug", title: "Mirzapur Heritage Hand-Tufted Wool Rug", views: 9800, orders: 86, bounceRate: "24%" },
+      { path: "/", title: "Homepage - Ganga Handmade Rugs", views: 16200, orders: 54, bounceRate: "21%" },
     ],
   },
 };
@@ -313,7 +342,7 @@ export function TrafficClient() {
 
           {/* Date Range Selector */}
           <div className="inline-flex rounded-xl bg-slate-200/80 p-1 shadow-inner">
-            {(["today", "7d", "30d", "90d", "all"] as RangeKey[]).map((key) => (
+            {(["24h", "7d", "30d", "90d", "365d", "custom"] as RangeKey[]).map((key) => (
               <button
                 key={key}
                 type="button"

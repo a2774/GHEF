@@ -3,10 +3,10 @@
 import { Plus, Trash2 } from "lucide-react";
 import { type FormEvent, useState, useTransition } from "react";
 
-import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
-import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { Input } from "@/components/ui/input";
+import { toast } from "@/components/ui/sonner";
 import { deleteProduct, type ProductInput, saveProduct } from "@/server/actions/admin-products";
 import type { products, productVariants } from "@/server/db/schema";
 
@@ -21,8 +21,10 @@ type VariantRow = {
   stock: string;
 };
 
-const fieldClass = "h-11 rounded-xl bg-card px-3 text-base md:text-base";
-const selectClass = "h-11 w-full rounded-xl border border-input bg-card px-3 text-base";
+const inputClass =
+  "h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-900 shadow-2xs placeholder:text-slate-400 focus:border-[#bef264] focus:outline-none focus:ring-1 focus:ring-[#bef264]";
+const selectClass =
+  "h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-900 shadow-2xs focus:border-[#bef264] focus:outline-none focus:ring-1 focus:ring-[#bef264]";
 
 function toRupees(paise: number) {
   return String(paise / 100);
@@ -33,10 +35,25 @@ function toPaise(rupees: string) {
   return Number.isFinite(value) && value >= 0 ? Math.round(value * 100) : 0;
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  required,
+  subtext,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  subtext?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <label className="block">
-      <span className="mb-1.5 block text-base font-medium">{label}</span>
+    <label className="block space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-slate-800">
+          {label} {required && <span className="text-rose-500">*</span>}
+        </span>
+        {subtext && <span className="text-[11px] text-slate-400">{subtext}</span>}
+      </div>
       {children}
     </label>
   );
@@ -133,102 +150,287 @@ export function ProductForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <section className="grid gap-4 rounded-2xl bg-muted p-5 md:grid-cols-2">
-        <Field label="Name">
-          <Input name="title" required defaultValue={product?.title} className={fieldClass} />
-        </Field>
-        <Field label="URL slug">
-          <Input name="slug" defaultValue={product?.slug} placeholder="Made from the name if empty" className={fieldClass} />
-        </Field>
-        <Field label="Category">
-          <select name="categoryId" required defaultValue={product?.categoryId} className={selectClass}>
-            {categories.map(({ id, name }) => (
-              <option key={id} value={id}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Material">
-          <Input name="material" required defaultValue={product?.material} className={fieldClass} />
-        </Field>
-        <div className="md:col-span-2">
-          <Field label="Description">
-            <textarea
-              name="description"
+    <form onSubmit={handleSubmit} className="space-y-8">
+      {/* 1. Core Specifications Section */}
+      <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-2xs space-y-5">
+        <div className="border-b border-slate-100 pb-3">
+          <h2 className="text-base font-bold text-slate-950 tracking-tight">
+            Rug Specifications & Classification
+          </h2>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Define basic catalog details, parent collection, materials, and search slug.
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Rug Name" required>
+            <Input
+              name="title"
               required
-              rows={4}
-              defaultValue={product?.description}
-              className="w-full rounded-xl border border-input bg-card p-3 text-base"
+              defaultValue={product?.title}
+              placeholder="e.g. Mirzapur Heritage Hand-Tufted Wool Rug"
+              className={inputClass}
             />
           </Field>
-        </div>
-        <Field label="Status">
-          <select name="status" defaultValue={product?.status ?? "draft"} className={selectClass}>
-            <option value="draft">Draft (unpublished)</option>
-            <option value="active">Published</option>
-            <option value="archived">Archived</option>
-          </select>
-        </Field>
-        <div className="flex items-end gap-6 pb-2.5">
-          <label className="flex items-center gap-2 text-base">
-            <input type="checkbox" name="isFeatured" defaultChecked={product?.isFeatured} className="size-5" />
-            Featured
-          </label>
-          <label className="flex items-center gap-2 text-base">
-            <input type="checkbox" name="isBestseller" defaultChecked={product?.isBestseller} className="size-5" />
-            Bestseller
-          </label>
+
+          <Field label="URL Slug" subtext="Autogenerated from name if blank">
+            <Input
+              name="slug"
+              defaultValue={product?.slug}
+              placeholder="e.g. mirzapur-heritage-hand-tufted"
+              className={`${inputClass} font-mono`}
+            />
+          </Field>
+
+          <Field label="Collection / Category" required>
+            <select
+              name="categoryId"
+              required
+              defaultValue={product?.categoryId}
+              className={selectClass}
+            >
+              {categories.map(({ id, name }) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Craft & Material" required>
+            <Input
+              name="material"
+              required
+              defaultValue={product?.material}
+              placeholder="e.g. 100% New Zealand Blended Wool with Cotton Backing"
+              className={inputClass}
+            />
+          </Field>
+
+          <div className="md:col-span-2">
+            <Field label="Description & Artisan Story" required>
+              <textarea
+                name="description"
+                required
+                rows={4}
+                defaultValue={product?.description}
+                placeholder="Describe the weaving technique, knot count, texture feel, and heritage context..."
+                className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs font-medium text-slate-900 shadow-2xs placeholder:text-slate-400 focus:border-[#bef264] focus:outline-none focus:ring-1 focus:ring-[#bef264]"
+              />
+            </Field>
+          </div>
+
+          <Field label="Catalog Visibility Status">
+            <select
+              name="status"
+              defaultValue={product?.status ?? "draft"}
+              className={selectClass}
+            >
+              <option value="draft">Draft (Unpublished on Storefront)</option>
+              <option value="active">Active (Live in Buyer Catalog)</option>
+              <option value="archived">Archived (Hidden from Catalog)</option>
+            </select>
+          </Field>
+
+          <div className="flex items-center gap-6 pt-5">
+            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                name="isFeatured"
+                defaultChecked={product?.isFeatured}
+                className="size-4 rounded border-slate-300 text-slate-900 focus:ring-[#bef264]"
+              />
+              <span>Featured Storefront Banner</span>
+            </label>
+            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                name="isBestseller"
+                defaultChecked={product?.isBestseller}
+                className="size-4 rounded border-slate-300 text-slate-900 focus:ring-[#bef264]"
+              />
+              <span>Artisan Bestseller Badge</span>
+            </label>
+          </div>
         </div>
       </section>
 
-      <section className="rounded-2xl bg-muted p-5">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="text-2xl font-semibold tracking-tight">Variants</h2>
-          <Button type="button" variant="outline" onClick={addRow} className="h-10 rounded-full px-4 text-base">
-            <Plus data-icon="inline-start" />
-            Add variant
+      {/* 2. Variants Section with EXPLICIT, VISIBLE LABELS */}
+      <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-2xs space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-slate-950 tracking-tight">
+                Variants, Sizes &amp; Pricing
+              </h2>
+              <span className="rounded-full bg-[#bef264]/40 border border-[#bef264] px-2 py-0.5 text-[10px] font-bold text-slate-900">
+                {rows.length} {rows.length === 1 ? "Option" : "Options"}
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs text-slate-500">
+              <strong className="text-slate-800">Sale Price:</strong> what buyers pay at checkout.{" "}
+              <strong className="text-slate-800">Regular MRP:</strong> full crossed-out list price.
+            </p>
+          </div>
+
+          <Button
+            type="button"
+            onClick={addRow}
+            className="h-9 rounded-full bg-[#0B132B] px-4 text-xs font-semibold text-white shadow-2xs hover:bg-[#1a233a] transition-all cursor-pointer shrink-0"
+          >
+            <Plus className="size-3.5 mr-1 text-[#bef264]" />
+            <span>Add Variant</span>
           </Button>
         </div>
-        <p className="mt-1 text-base text-muted-foreground">
-          Sale price is what customers pay. Regular price is the full price.
-        </p>
-        <div className="mt-4 space-y-3">
+
+        {/* Column Labels Header for Desktop */}
+        <div className="hidden lg:grid lg:grid-cols-[1.1fr_1fr_1.2fr_1fr_1fr_0.8fr_44px] gap-2.5 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-600 bg-slate-50 rounded-xl border border-slate-200/70">
+          <div>Size / Dimensions</div>
+          <div>Color / Weave</div>
+          <div>SKU Code</div>
+          <div>Sale Price (₹)</div>
+          <div>Regular MRP (₹)</div>
+          <div className="text-center">Stock Qty</div>
+          <div className="text-center">Action</div>
+        </div>
+
+        {/* Rows with clear mobile and desktop labels */}
+        <div className="space-y-3">
           {rows.map((row) => (
-            <div key={row.key} className="grid grid-cols-2 gap-2 rounded-xl bg-background p-3 lg:grid-cols-[1fr_1fr_1.2fr_1fr_1fr_0.7fr_auto]">
-              <Input aria-label="Size" placeholder="Size, e.g. 5 x 7 ft" value={row.size} onChange={(e) => updateRow(row.key, "size", e.target.value)} className={fieldClass} />
-              <Input aria-label="Colour" placeholder="Colour" value={row.color} onChange={(e) => updateRow(row.key, "color", e.target.value)} className={fieldClass} />
-              <Input aria-label="SKU" placeholder="SKU" value={row.sku} onChange={(e) => updateRow(row.key, "sku", e.target.value)} className={fieldClass} />
-              <Input aria-label="Sale price in rupees" type="number" min="0" step="0.01" placeholder="Sale ₹" value={row.price} onChange={(e) => updateRow(row.key, "price", e.target.value)} className={fieldClass} />
-              <Input aria-label="Regular price in rupees" type="number" min="0" step="0.01" placeholder="Regular ₹" value={row.mrp} onChange={(e) => updateRow(row.key, "mrp", e.target.value)} className={fieldClass} />
-              <Input aria-label="Stock" type="number" min="0" step="1" placeholder="Stock" value={row.stock} onChange={(e) => updateRow(row.key, "stock", e.target.value)} className={fieldClass} />
-              <Button
-                type="button"
-                variant="ghost"
-                aria-label="Remove variant"
-                disabled={rows.length === 1}
-                onClick={() => setRows((current) => current.filter(({ key }) => key !== row.key))}
-                className="size-11"
-              >
-                <Trash2 />
-              </Button>
+            <div
+              key={row.key}
+              className="grid grid-cols-2 gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50/40 p-3.5 lg:grid-cols-[1.1fr_1fr_1.2fr_1fr_1fr_0.8fr_44px] lg:bg-transparent lg:border-slate-100 lg:p-1.5 items-center hover:bg-slate-50/50 transition-colors"
+            >
+              <div>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider lg:hidden mb-1">
+                  Size / Dimensions
+                </span>
+                <Input
+                  aria-label="Size"
+                  placeholder="e.g. 5 × 7 ft"
+                  value={row.size}
+                  onChange={(e) => updateRow(row.key, "size", e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider lg:hidden mb-1">
+                  Color / Weave
+                </span>
+                <Input
+                  aria-label="Colour"
+                  placeholder="e.g. Sand / Charcoal"
+                  value={row.color}
+                  onChange={(e) => updateRow(row.key, "color", e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider lg:hidden mb-1">
+                  SKU Code
+                </span>
+                <Input
+                  aria-label="SKU"
+                  placeholder="e.g. RUG-5X7-IVR"
+                  value={row.sku}
+                  onChange={(e) => updateRow(row.key, "sku", e.target.value)}
+                  className={`${inputClass} font-mono`}
+                />
+              </div>
+
+              <div>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider lg:hidden mb-1">
+                  Sale Price (₹)
+                </span>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold">
+                    ₹
+                  </span>
+                  <Input
+                    aria-label="Sale price in rupees"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0"
+                    value={row.price}
+                    onChange={(e) => updateRow(row.key, "price", e.target.value)}
+                    className={`${inputClass} pl-6 font-mono font-bold text-emerald-700`}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider lg:hidden mb-1">
+                  Regular MRP (₹)
+                </span>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold">
+                    ₹
+                  </span>
+                  <Input
+                    aria-label="Regular price in rupees"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0"
+                    value={row.mrp}
+                    onChange={(e) => updateRow(row.key, "mrp", e.target.value)}
+                    className={`${inputClass} pl-6 font-mono text-slate-600`}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider lg:hidden mb-1">
+                  Stock Units
+                </span>
+                <Input
+                  aria-label="Stock"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  value={row.stock}
+                  onChange={(e) => updateRow(row.key, "stock", e.target.value)}
+                  className={`${inputClass} font-mono font-bold text-slate-900 text-center`}
+                />
+              </div>
+
+              <div className="flex items-center justify-center pt-2 lg:pt-0">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  aria-label="Remove variant"
+                  disabled={rows.length === 1}
+                  onClick={() => setRows((current) => current.filter(({ key }) => key !== row.key))}
+                  className="size-8 p-0 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
             </div>
           ))}
         </div>
       </section>
 
       {error && (
-        <p role="alert" className="text-base text-destructive">
+        <p role="alert" className="text-xs text-rose-600 bg-rose-50 border border-rose-200 p-3 rounded-xl font-medium">
           {error}
         </p>
       )}
-      {saved && <p role="status" className="text-base">Saved.</p>}
 
-      <div className="flex flex-wrap gap-3">
-        <Button type="submit" disabled={pending} className="h-12 rounded-full px-8 text-base">
-          {product ? "Save changes" : "Create product"}
+      {/* 3. Action Toolbar */}
+      <div className="flex flex-wrap items-center gap-3 pt-2">
+        <Button
+          type="submit"
+          disabled={pending}
+          className="h-10 rounded-full bg-[#bef264] px-8 text-xs font-bold text-slate-950 shadow-xs hover:bg-[#a3e635] transition-all cursor-pointer"
+        >
+          {pending ? "Saving..." : product ? "Save Changes" : "Create Product"}
         </Button>
+
         {product && (
           <ConfirmDeleteDialog
             title="Delete Product?"
@@ -242,9 +444,9 @@ export function ProductForm({
                 type="button"
                 variant="destructive"
                 disabled={pending}
-                className="h-12 rounded-full px-6 text-base cursor-pointer"
+                className="h-10 rounded-full px-6 text-xs font-semibold cursor-pointer"
               >
-                Delete product
+                Delete Product
               </Button>
             }
           />
