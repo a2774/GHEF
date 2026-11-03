@@ -21,6 +21,7 @@ function optionalText(value: FormDataEntryValue | null) {
 }
 
 function refreshOrder(id: number) {
+  updateTag("admin");
   revalidatePath("/admin");
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${id}`);

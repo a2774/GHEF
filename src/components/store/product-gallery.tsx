@@ -165,7 +165,7 @@ function Thumbnails({
 }) {
   if (images.length < 2) return null;
   return (
-    <div ref={stripRef} className={`no-scrollbar flex gap-3 overflow-x-auto p-1 sm:gap-4 ${dark ? "justify-center" : ""}`}>
+    <div ref={stripRef} className={`no-scrollbar flex gap-3 overflow-x-auto p-px ${dark ? "justify-center sm:gap-4" : ""}`}>
       {images.map((image, position) => (
         <button
           key={image.id}
@@ -174,8 +174,10 @@ function Thumbnails({
           aria-current={position === index}
           onClick={() => onChange(position)}
           onMouseEnter={() => onChange(position, true)}
-          className={`relative aspect-square shrink-0 overflow-hidden rounded-2xl opacity-60 outline-offset-2 transition-opacity hover:opacity-100 aria-current:opacity-100 aria-current:outline-2 ${
-            dark ? "w-16 bg-white/10 aria-current:outline-white sm:w-20" : "w-[22%] bg-muted aria-current:outline-primary"
+          className={`relative shrink-0 overflow-hidden opacity-70 transition-opacity hover:opacity-100 aria-current:opacity-100 ${
+            dark
+              ? "aspect-square w-16 rounded-xl bg-white/10 outline-offset-2 aria-current:outline-2 aria-current:outline-white sm:w-20"
+              : "aspect-[4/5] w-[calc((100%-2.25rem)/4)] bg-muted outline-offset-0 aria-current:outline-1 aria-current:outline-[#111]"
           }`}
         >
           <ProductPhoto publicId={image.publicId} alt="" sizes="20vw" className="object-cover" />
@@ -215,9 +217,9 @@ export function ProductGallery({ images, title }: { images: GalleryImage[]; titl
         onOpen={() => setOpen(true)}
         fit="cover"
         sizes="(min-width: 1024px) 60vw, 100vw"
-        className="aspect-square rounded-3xl bg-muted"
+        className="aspect-[4/3] bg-muted"
       />
-      <div className="mt-4">
+      <div className="mt-3">
         <Thumbnails images={images} index={index} onChange={show} stripRef={strip} />
       </div>
 

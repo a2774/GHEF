@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import type { Metadata } from "next";
 import { cacheLife, cacheTag } from "next/cache";
 import Link from "next/link";
@@ -5,10 +6,14 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { type PurchaseInfo, ProductExperience } from "@/components/store/product-experience";
+import { ProductFaq } from "@/components/store/product-faq";
 import { ProductRail } from "@/components/store/product-rail";
+import { ProductTabs } from "@/components/store/product-tabs";
 import { ProductReviews } from "@/components/store/product-reviews";
 import { describeDbError } from "@/lib/db-error";
+import { poppinsClass } from "@/lib/fonts";
 import { siteName, siteUrl } from "@/lib/site";
+import { couponOffers, getLiveCoupons } from "@/server/services/coupons";
 import { offerHeadlines } from "@/server/services/pricing";
 import { getActiveProductSlugs, getProductBySlug } from "@/server/services/products";
 import { getStoreSettings } from "@/server/services/settings";
@@ -38,14 +43,17 @@ async function loadPurchaseInfo(): Promise<PurchaseInfo> {
   cacheTag("storefront");
   cacheLife("hours");
 
-  const settings = await getStoreSettings();
+  const [settings, liveCoupons] = await Promise.all([getStoreSettings(), getLiveCoupons()]);
   return {
-    offers: offerHeadlines(settings.offers),
+    offers: [...couponOffers(liveCoupons), ...offerHeadlines(settings.offers)],
+    prepaidPercent: settings.offers.prepaidPercent,
     readyDispatchDays: settings.readyDispatchDays,
     madeToOrderDays: settings.madeToOrderDays,
     transitDays: settings.transitDays,
     codEnabled: settings.codEnabled,
     shippingPaise: settings.shippingPaise,
+    tabs: settings.productTabs,
+    brandName: settings.brandName || siteName,
   };
 }
 
@@ -108,38 +116,46 @@ async function Product({ params }: ProductPageProps) {
           __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
         }}
       />
-      <nav aria-label="Breadcrumb" className="mx-auto max-w-7xl px-4 pt-32 text-base text-muted-foreground sm:px-6 lg:px-8">
-        <Link href="/" className="hover:text-foreground">
-          Home
-        </Link>
-        {" / "}
-        <Link href="/products" className="hover:text-foreground">
-          Products
-        </Link>
-        {" / "}
-        <Link href={`/products?category=${product.categorySlug}`} className="hover:text-foreground">
-          {product.category}
-        </Link>
-        {" / "}
-        <span className="text-foreground">{product.title}</span>
+      <nav aria-label="Breadcrumb" className="mx-auto max-w-7xl px-4 pt-32 pb-5 sm:px-6 lg:px-8">
+        <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[0.95rem] text-[#555]">
+          <li>
+            <Link href="/" className="hover:underline">
+              Home
+            </Link>
+          </li>
+          <li aria-hidden="true">
+            <ChevronRight className="size-4 text-muted-foreground" />
+          </li>
+          <li>
+            <Link href={`/products?category=${product.categorySlug}`} className="hover:underline">
+              {product.category}
+            </Link>
+          </li>
+          <li aria-hidden="true">
+            <ChevronRight className="size-4 text-muted-foreground" />
+          </li>
+          <li aria-current="page" className="min-w-0 text-muted-foreground">
+            {product.title}
+          </li>
+        </ol>
       </nav>
       <ProductExperience product={product} purchase={purchase} />
-      <ProductReviews productId={product.id} />
+      <ProductTabs product={product} purchase={purchase} reviews={<ProductReviews productId={product.id} />} />
       <ProductRail
-        title="You may also like."
+        title="People also bought."
         href={`/products?category=${product.categorySlug}`}
         filters={{ category: product.categorySlug, sort: "bestselling" }}
         limit={4}
         excludeSlug={product.slug}
       />
-      <div className="h-20 lg:h-32" />
+      <ProductFaq purchase={purchase} brandName={purchase.brandName} />
     </>
   );
 }
 
 export default function ProductPage({ params }: ProductPageProps) {
   return (
-    <main>
+    <main className={`bg-white text-[#555] ${poppinsClass}`}>
       <Suspense fallback={<div className="min-h-svh" />}>
         <Product params={params} />
       </Suspense>

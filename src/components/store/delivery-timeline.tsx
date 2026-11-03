@@ -1,13 +1,16 @@
 "use client";
 
-import { PackageCheck, Scissors, ShoppingBag, Truck } from "lucide-react";
-import { useSyncExternalStore } from "react";
+import { CalendarDays, Clock3, House, Truck } from "lucide-react";
+import { Fragment, useSyncExternalStore } from "react";
 
-import { deliveryEstimate } from "@/lib/delivery";
+import { addWorkingDays, deliveryEstimate } from "@/lib/delivery";
 
 const noSubscription = () => () => {};
 
-const dateFormat = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short" });
+const dateFormat = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
+
+// Couriers rarely hit an exact day, so dispatch and delivery show a short window.
+const windowDays = 2;
 
 export function DeliveryTimeline({
   readyToShip,
@@ -28,36 +31,56 @@ export function DeliveryTimeline({
   const now = today ? new Date(today) : null;
   const estimate = now ? deliveryEstimate(now, dispatchDays, transitDays) : null;
   const show = (date?: Date) => (date ? dateFormat.format(date) : "…");
+  const range = (date?: Date) =>
+    date ? `${show(date)} – ${show(addWorkingDays(date, windowDays))}` : "…";
 
   const steps = [
-    { icon: ShoppingBag, label: "Order", value: now ? "Today" : "…" },
-    { icon: readyToShip ? PackageCheck : Scissors, label: readyToShip ? "Packed" : "Woven", value: `${dispatchDays} ${dispatchDays === 1 ? "day" : "days"}` },
-    { icon: Truck, label: "Shipped by", value: show(estimate?.dispatch) },
-    { icon: PackageCheck, label: "Delivered by", value: show(estimate?.delivery) },
+    { icon: CalendarDays, label: "Order on", value: now ? show(now) : "…" },
+    { icon: Truck, label: "Shipped by", value: range(estimate?.dispatch) },
+    { icon: House, label: "Delivered by", value: range(estimate?.delivery) },
   ];
+  const stages = [readyToShip ? "Packing" : "Crafting", "In-transit"];
 
   return (
-    <div className="rounded-3xl bg-muted p-5">
-      <p className="text-base font-medium">
-        {readyToShip ? "Ready to dispatch from stock" : "Made to order for you"}
-      </p>
-      <ol className="mt-4 grid grid-cols-4 gap-2">
+    <section
+      aria-labelledby="delivery-heading"
+      className="rounded-xl border border-[#7a1f2b] bg-white px-4 pt-3 pb-3.5"
+    >
+      <h2
+        id="delivery-heading"
+        className="flex items-center gap-1.5 border-b border-[#e6dcdc] pb-2.5 text-[0.65rem] font-medium tracking-[0.14em] text-[#7a1f2b] uppercase"
+      >
+        <Clock3 className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
+        Estimated delivery timeline
+      </h2>
+
+      <ol className="mt-3.5 flex items-start">
         {steps.map(({ icon: Icon, label, value }, index) => (
-          <li key={label} className="relative text-center">
+          <Fragment key={label}>
             {index > 0 && (
-              <span aria-hidden="true" className="absolute top-5 right-1/2 h-px w-full -translate-y-1/2 bg-border" />
+              <li aria-hidden="true" className="relative mt-[1.05rem] min-w-6 flex-1 px-1.5">
+                <span className="block border-t-2 border-dashed border-[#7a1f2b]" />
+                <span className="absolute inset-x-0 top-2 text-center text-[0.55rem] tracking-[0.12em] text-[#8a7f7f] uppercase">
+                  {stages[index - 1]}
+                </span>
+              </li>
             )}
-            <span className="relative mx-auto flex size-10 items-center justify-center rounded-full bg-background">
-              <Icon className="size-5" strokeWidth={1.5} aria-hidden="true" />
-            </span>
-            <span className="mt-2 block text-sm text-muted-foreground">{label}</span>
-            <span className="block text-sm font-medium">{value}</span>
-          </li>
+            <li
+              className={`flex shrink-0 flex-col ${
+                index === 0 ? "items-start" : index === steps.length - 1 ? "items-end" : "items-center"
+              }`}
+            >
+              <span className="flex size-9 items-center justify-center rounded-full border border-[#7a1f2b] bg-white text-[#7a1f2b]">
+                <Icon className="size-4" strokeWidth={1.75} aria-hidden="true" />
+              </span>
+              <span className="mt-1.5 text-[0.6rem] tracking-[0.1em] text-[#7a1f2b] uppercase">{label}</span>
+              <span className="font-[family-name:var(--font-logo)] text-[0.8rem] leading-tight font-bold whitespace-nowrap text-[#2b2622]">
+                {value}
+              </span>
+            </li>
+          </Fragment>
         ))}
       </ol>
-      <p className="mt-4 text-sm text-muted-foreground">
-        An estimate in working days. Remote PIN codes and sale periods can take longer.
-      </p>
-    </div>
+    </section>
   );
 }

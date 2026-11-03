@@ -23,7 +23,8 @@ export function ProductCard({ product }: { product: ProductCardData }) {
   const discount = price !== null && mrp && mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
 
   return (
-    <Link href={`/products/${product.slug}`} className="group">
+    // prefetch: the product page is cached, so loading it before the click is cheap and makes it open instantly.
+    <Link href={`/products/${product.slug}`} prefetch className="group">
       <div className="relative flex aspect-[4/5] items-center justify-center overflow-hidden rounded-3xl bg-muted">
         {product.primaryImageId ? (
           <ProductPhoto

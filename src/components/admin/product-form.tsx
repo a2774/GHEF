@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { Input } from "@/components/ui/input";
 import { ROOMS } from "@/lib/catalog-taxonomy";
+import { productTitleMaxLength } from "@/lib/limits";
 import { toast } from "@/components/ui/sonner";
 import {
   deleteProduct,
@@ -114,6 +115,7 @@ export function ProductForm({
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+  const [titleLength, setTitleLength] = useState(product?.title.length ?? 0);
   const [pending, startTransition] = useTransition();
 
   function updateRow(key: number, field: keyof VariantRow, value: string) {
@@ -272,10 +274,12 @@ export function ProductForm({
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Rug Name" required>
+          <Field label="Rug Name" required subtext={`${titleLength}/${productTitleMaxLength} characters`}>
             <Input
               name="title"
               required
+              maxLength={productTitleMaxLength}
+              onChange={(event) => setTitleLength(event.target.value.length)}
               defaultValue={product?.title}
               placeholder="e.g. Mirzapur Heritage Hand-Tufted Wool Rug"
               className={inputClass}

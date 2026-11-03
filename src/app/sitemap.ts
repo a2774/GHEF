@@ -23,6 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: siteUrl },
     { url: `${siteUrl}/products` },
     { url: `${siteUrl}/about` },
+    { url: `${siteUrl}/our-store` },
     { url: `${siteUrl}/contact` },
     { url: `${siteUrl}/track` },
     ...serviceSlugs.map((slug) => ({ url: `${siteUrl}/services/${slug}` })),

@@ -128,7 +128,7 @@ export async function listCatalogProducts(filters: CatalogFilters) {
       discount: desc(sql`(${priced.mrpPaise} - ${priced.pricePaise})::float / nullif(${priced.mrpPaise}, 0)`),
     }[filters.sort];
 
-    const rows = await db
+    const rowsQuery = db
       .select({
         id: products.id,
         title: products.title,
@@ -154,33 +154,37 @@ export async function listCatalogProducts(filters: CatalogFilters) {
       .limit(filters.limit ?? catalogPageSize)
       .offset((filters.page - 1) * (filters.limit ?? catalogPageSize));
 
-    const [{ total }] = await db
+    const totalQuery = db
       .select({ total: count() })
       .from(products)
       .innerJoin(categories, eq(products.categoryId, categories.id))
       .innerJoin(priced, eq(priced.productId, products.id))
       .where(where);
 
+    // The page of products and the total count do not depend on each other.
+    const [rows, [{ total }]] = await Promise.all([rowsQuery, totalQuery]);
     return { products: rows, total };
   });
 }
 
 export async function getCatalogOptions() {
   return withDbRetry(async () => {
-    const allCategories = await db
-      .select({ id: categories.id, name: categories.name, slug: categories.slug, parentId: categories.parentId })
-      .from(categories)
-      .orderBy(asc(categories.name));
-    const materials = await db
-      .selectDistinct({ value: products.material })
-      .from(products)
-      .where(eq(products.status, "active"))
-      .orderBy(asc(products.material));
-    const variantOptions = await db
-      .selectDistinct({ color: productVariants.color, size: productVariants.size })
-      .from(productVariants)
-      .innerJoin(products, eq(productVariants.productId, products.id))
-      .where(eq(products.status, "active"));
+    const [allCategories, materials, variantOptions] = await Promise.all([
+      db
+        .select({ id: categories.id, name: categories.name, slug: categories.slug, parentId: categories.parentId })
+        .from(categories)
+        .orderBy(asc(categories.name)),
+      db
+        .selectDistinct({ value: products.material })
+        .from(products)
+        .where(eq(products.status, "active"))
+        .orderBy(asc(products.material)),
+      db
+        .selectDistinct({ color: productVariants.color, size: productVariants.size })
+        .from(productVariants)
+        .innerJoin(products, eq(productVariants.productId, products.id))
+        .where(eq(products.status, "active")),
+    ]);
 
     return {
       categories: allCategories,

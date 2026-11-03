@@ -2,7 +2,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { updateSettings } from "@/server/actions/admin-modules";
 import { requireAdmin } from "@/server/auth/admin-session";
-import { getStoreSettings } from "@/server/services/settings";
+import { getStoreSettings, productTabMaxLength } from "@/server/services/settings";
+
+import { LimitedTextArea } from "./limited-textarea";
 
 export const instant = false;
 
@@ -66,6 +68,13 @@ export default async function AdminSettingsPage() {
 
       <form key={JSON.stringify(settings)} action={updateSettings} className="space-y-6">
         <Section title="Storefront Preferences">
+          <Field
+            label="Brand name (shown as “Brand: …” under every product title)"
+            name="brandName"
+            maxLength={60}
+            defaultValue={settings.brandName}
+            placeholder="Leave blank to use Ganga Handmade Export"
+          />
           <Field
             label="Extra announcement (shown first in the offer ticker)"
             name="announcement"
@@ -138,6 +147,33 @@ export default async function AdminSettingsPage() {
               className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-2xs focus:border-[#bef264] focus:outline-none"
             />
           </label>
+        </Section>
+
+        <Section
+          title="Product Page Tabs"
+          hint="Shown in the Shipping, Return Policies and Description tabs under every product. Up to 120 characters each. Leave a box blank to use the automatic text. Each product's own description is edited on the product."
+        >
+          <LimitedTextArea
+            maxLength={productTabMaxLength}
+            label="Shipping"
+            name="tabShipping"
+            defaultValue={settings.productTabs.shipping}
+            placeholder="e.g. Free delivery across India. Ready stock ships in 1-2 working days..."
+          />
+          <LimitedTextArea
+            maxLength={productTabMaxLength}
+            label="Return policies"
+            name="tabReturns"
+            defaultValue={settings.productTabs.returns}
+            placeholder="e.g. Returns accepted within 7 days of delivery if the carpet is unused..."
+          />
+          <LimitedTextArea
+            maxLength={productTabMaxLength}
+            label="Care instructions (shown under the description)"
+            name="tabCare"
+            defaultValue={settings.productTabs.care}
+            placeholder="e.g. Vacuum gently without the beater bar..."
+          />
         </Section>
 
         <div className="flex justify-end">

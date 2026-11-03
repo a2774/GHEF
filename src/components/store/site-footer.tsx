@@ -18,6 +18,7 @@ const footerLinks = [
       { label: "Track your order", href: "/track" },
       { label: "Contact us", href: "/contact" },
       { label: "Our story", href: "/about" },
+      { label: "Our store", href: "/our-store" },
       { label: "Shipping", href: "/policies/shipping" },
       { label: "Returns", href: "/policies/returns" },
       { label: "Privacy", href: "/policies/privacy" },

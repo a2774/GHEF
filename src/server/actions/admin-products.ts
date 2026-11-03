@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 
 import { roomSlugs } from "@/lib/catalog-taxonomy";
+import { productTitleMaxLength } from "@/lib/limits";
 import { logAdminAction, requireAdmin } from "@/server/auth/admin-session";
 import { db, withDbRetry } from "@/server/db";
 import { categories, productImages, products, productVariants } from "@/server/db/schema";
@@ -61,6 +62,9 @@ function slugify(value: string) {
 
 function validate(input: ProductInput) {
   if (typeof input.title !== "string" || !input.title.trim()) return "Add a product name.";
+  if (input.title.trim().length > productTitleMaxLength) {
+    return `Keep the product name to ${productTitleMaxLength} characters or fewer.`;
+  }
   if (typeof input.description !== "string" || !input.description.trim()) return "Add a description.";
   if (typeof input.material !== "string" || !input.material.trim()) return "Add a material.";
   if (!input.categoryId) return "Choose a category.";
@@ -93,6 +97,7 @@ function validate(input: ProductInput) {
 
 function refreshStorefront(productId?: number) {
   updateTag("products");
+  updateTag("admin");
   revalidatePath("/admin/products");
   if (productId) revalidatePath(`/admin/products/${productId}`);
 }
@@ -333,6 +338,7 @@ export async function createCategory(form: FormData) {
   await withDbRetry(async () =>
     db.insert(categories).values({ name, slug, parentId }).onConflictDoNothing(),
   );
+  updateTag("admin");
   revalidatePath("/admin/categories");
 }
 
@@ -348,5 +354,6 @@ export async function deleteCategory(id: number) {
   if (inUse.length > 0 || hasChildren.length > 0) return;
 
   await withDbRetry(async () => db.delete(categories).where(eq(categories.id, id)));
+  updateTag("admin");
   revalidatePath("/admin/categories");
 }

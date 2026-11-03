@@ -10,7 +10,7 @@ import { logAdminAction, requireAdmin } from "@/server/auth/admin-session";
 import { hashPassword } from "@/server/auth/password";
 import { db, withDbRetry } from "@/server/db";
 import { adminUsers, banners, productVariants, reviews } from "@/server/db/schema";
-import { saveStoreSettings } from "@/server/services/settings";
+import { productTabMaxLength, saveStoreSettings } from "@/server/services/settings";
 import { sendBackInStockAlerts } from "@/server/services/stock-alerts";
 
 const percent = z.coerce.number().min(0).max(90);
@@ -18,6 +18,7 @@ const optionalText = (max: number) => z.string().trim().max(max).optional().defa
 
 const settingsSchema = z.object({
   announcement: z.string().trim().max(160),
+  brandName: optionalText(60),
   shipping: z.coerce.number().min(0).max(100_000),
   codEnabled: z.string().optional(),
   readyDispatchDays: z.coerce.number().int().min(0).max(30),
@@ -38,6 +39,9 @@ const settingsSchema = z.object({
   mapUrl: optionalText(500).refine((value) => !value || value.startsWith("https://"), "Use an https link."),
   instagram: optionalText(200).refine((value) => !value || value.startsWith("https://"), "Use an https link."),
   youtube: optionalText(200).refine((value) => !value || value.startsWith("https://"), "Use an https link."),
+  tabShipping: optionalText(productTabMaxLength),
+  tabReturns: optionalText(productTabMaxLength),
+  tabCare: optionalText(productTabMaxLength),
 });
 
 export async function updateSettings(form: FormData) {
@@ -49,6 +53,7 @@ export async function updateSettings(form: FormData) {
 
   await saveStoreSettings({
     announcement: data.announcement,
+    brandName: data.brandName,
     codEnabled: data.codEnabled === "on",
     shippingPaise: Math.round(data.shipping * 100),
     readyDispatchDays: data.readyDispatchDays,
@@ -72,10 +77,16 @@ export async function updateSettings(form: FormData) {
       instagram: data.instagram,
       youtube: data.youtube,
     },
+    productTabs: {
+      shipping: data.tabShipping,
+      returns: data.tabReturns,
+      care: data.tabCare,
+    },
   });
   await logAdminAction(admin, "update", "settings");
   updateTag("storefront");
   updateTag("products");
+  updateTag("admin");
   revalidatePath("/admin/settings");
 }
 
@@ -97,6 +108,7 @@ export async function createBanner(form: FormData) {
   );
   await logAdminAction(admin, "create", "banner", banner.id);
   updateTag("storefront");
+  updateTag("admin");
   revalidatePath("/admin/banners");
 }
 
@@ -107,6 +119,7 @@ export async function toggleBanner(id: number) {
   );
   await logAdminAction(admin, "toggle", "banner", id);
   updateTag("storefront");
+  updateTag("admin");
   revalidatePath("/admin/banners");
 }
 
@@ -115,6 +128,7 @@ export async function deleteBanner(id: number) {
   await withDbRetry(async () => db.delete(banners).where(eq(banners.id, id)));
   await logAdminAction(admin, "delete", "banner", id);
   updateTag("storefront");
+  updateTag("admin");
   revalidatePath("/admin/banners");
 }
 
@@ -130,6 +144,7 @@ export async function updateStock(variantId: number, form: FormData) {
   await logAdminAction(admin, "update-stock", "variant", variantId, String(stock.data));
   if (stock.data > 0) after(() => sendBackInStockAlerts([variantId]));
   updateTag("products");
+  updateTag("admin");
   revalidatePath("/admin/inventory");
 }
 
@@ -138,6 +153,7 @@ export async function moderateReview(id: number, status: "approved" | "rejected"
   await withDbRetry(async () => db.update(reviews).set({ status }).where(eq(reviews.id, id)));
   await logAdminAction(admin, status, "review", id);
   updateTag("products");
+  updateTag("admin");
   revalidatePath("/admin/reviews");
 }
 
@@ -166,6 +182,7 @@ export async function createTeamMember(_previous: string | null, form: FormData)
   if (inserted.length === 0) return "That email already has an admin account.";
 
   await logAdminAction(admin, "create", "admin-user", inserted[0].id, member.role);
+  updateTag("admin");
   revalidatePath("/admin/team");
   return null;
 }
@@ -176,5 +193,6 @@ export async function toggleTeamMember(id: number) {
     db.update(adminUsers).set({ isActive: not(adminUsers.isActive) }).where(eq(adminUsers.id, id)),
   );
   await logAdminAction(admin, "toggle", "admin-user", id);
+  updateTag("admin");
   revalidatePath("/admin/team");
 }

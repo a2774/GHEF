@@ -208,20 +208,23 @@ export function describeDiscounts(discounts: DiscountLine[]) {
 }
 
 /** Short lines for the ticker and the product page offers box. */
+/** One automatic offer as shown to shoppers. `percent` feeds the "10% OFF" badge. */
+export type OfferHeadline = { title: string; detail: string; percent: number };
+
 export function offerHeadlines(offers: OfferSettings) {
-  const lines: { title: string; detail: string }[] = [];
+  const lines: OfferHeadline[] = [];
   for (const tier of [...offers.bundleTiers].sort((a, b) => a.minItems - b.minItems)) {
     if (tier.percent > 0) {
-      lines.push({ title: `Buy ${tier.minItems}, get ${tier.percent}% off`, detail: `Add any ${tier.minItems} items to your cart` });
+      lines.push({ title: `Buy ${tier.minItems}, get ${tier.percent}% off`, detail: `Add any ${tier.minItems} items to your cart`, percent: tier.percent });
     }
   }
   for (const tier of offers.valueTiers) {
     if (tier.percent > 0) {
-      lines.push({ title: `Spend ${rupees(tier.minPaise)}+, get ${tier.percent}% off`, detail: `On a cart value of ${rupees(tier.minPaise)} or more` });
+      lines.push({ title: `Spend ${rupees(tier.minPaise)}+, get ${tier.percent}% off`, detail: `On a cart value of ${rupees(tier.minPaise)} or more`, percent: tier.percent });
     }
   }
   if (offers.prepaidPercent > 0) {
-    lines.push({ title: `Extra ${offers.prepaidPercent}% off on prepaid`, detail: "Pay online with UPI, card or net banking" });
+    lines.push({ title: `Extra ${offers.prepaidPercent}% off on prepaid`, detail: "Pay online with UPI, card or net banking", percent: offers.prepaidPercent });
   }
   return lines;
 }

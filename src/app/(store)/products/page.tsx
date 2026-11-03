@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cacheLife, cacheTag } from "next/cache";
 import Form from "next/form";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -92,13 +93,25 @@ function OptionSelect({
   );
 }
 
+// Listings are the same for every shopper, so they are cached and refreshed when products change.
+async function loadProducts(filters: CatalogFilters) {
+  "use cache";
+  cacheTag("products");
+  cacheLife("minutes");
+  return listCatalogProducts(filters);
+}
+
+async function loadOptions() {
+  "use cache";
+  cacheTag("products");
+  cacheLife("hours");
+  return getCatalogOptions();
+}
+
 async function Catalog({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const filters = parseFilters(params);
-  const [{ products, total }, options] = await Promise.all([
-    listCatalogProducts(filters),
-    getCatalogOptions(),
-  ]);
+  const [{ products, total }, options] = await Promise.all([loadProducts(filters), loadOptions()]);
 
   const parents = options.categories.filter(({ parentId }) => parentId === null);
   const categoryOptions = parents.flatMap((parent) => [

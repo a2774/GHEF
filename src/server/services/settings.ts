@@ -16,8 +16,17 @@ export type StoreInfo = {
   youtube: string;
 };
 
+/** Text for the tabs under every product. A blank field falls back to the automatic text. */
+export type ProductTabsText = {
+  shipping: string;
+  returns: string;
+  care: string;
+};
+
 export type StoreSettings = {
   announcement: string;
+  /** Shown as "Brand: …" under product titles. Blank means the site name. */
+  brandName: string;
   codEnabled: boolean;
   shippingPaise: number;
   /** Working days to dispatch ready stock and made-to-order pieces. */
@@ -26,6 +35,7 @@ export type StoreSettings = {
   transitDays: number;
   offers: OfferSettings;
   store: StoreInfo;
+  productTabs: ProductTabsText;
 };
 
 const emptyStore: StoreInfo = {
@@ -37,6 +47,17 @@ const emptyStore: StoreInfo = {
   instagram: "",
   youtube: "",
 };
+
+/** Most characters an owner can write in each product tab box. */
+export const productTabMaxLength = 120;
+
+const emptyProductTabs: ProductTabsText = { shipping: "", returns: "", care: "" };
+
+const productTabsSchema = z.object({
+  shipping: z.string().max(5000),
+  returns: z.string().max(5000),
+  care: z.string().max(5000),
+});
 
 const offerSchema = z.object({
   bundleTiers: z
@@ -74,8 +95,18 @@ function positiveInt(raw: string | undefined, fallback: number) {
   return Number.isInteger(value) && value >= 0 ? value : fallback;
 }
 
+// Text saved before the limit existed is cut to fit, so the admin form can be saved again.
+function limitTabs(tabs: ProductTabsText): ProductTabsText {
+  return {
+    shipping: tabs.shipping.slice(0, productTabMaxLength),
+    returns: tabs.returns.slice(0, productTabMaxLength),
+    care: tabs.care.slice(0, productTabMaxLength),
+  };
+}
+
 const keys = [
   "announcement",
+  "brandName",
   "codEnabled",
   "shippingPaise",
   "readyDispatchDays",
@@ -83,6 +114,7 @@ const keys = [
   "transitDays",
   "offers",
   "store",
+  "productTabs",
 ];
 
 export async function getStoreSettings(): Promise<StoreSettings> {
@@ -92,6 +124,7 @@ export async function getStoreSettings(): Promise<StoreSettings> {
   const values = new Map(rows.map(({ key, value }) => [key, value]));
   return {
     announcement: values.get("announcement") ?? "",
+    brandName: values.get("brandName") ?? "",
     codEnabled: values.get("codEnabled") !== "false",
     shippingPaise: Number(values.get("shippingPaise") ?? 0),
     readyDispatchDays: positiveInt(values.get("readyDispatchDays"), 1),
@@ -99,6 +132,10 @@ export async function getStoreSettings(): Promise<StoreSettings> {
     transitDays: positiveInt(values.get("transitDays"), 5),
     offers: parseJson(values.get("offers"), offerSchema, defaultOfferSettings),
     store: { ...emptyStore, ...parseJson(values.get("store"), storeSchema.partial(), {}) },
+    productTabs: limitTabs({
+      ...emptyProductTabs,
+      ...parseJson(values.get("productTabs"), productTabsSchema.partial(), {}),
+    }),
   };
 }
 
