@@ -38,9 +38,11 @@ function createPool() {
   const pool = new Pool({
     connectionString: connectionUrl.href,
     Client: IPv4Client,
-    max: 5,
+    max: 10,
     connectionTimeoutMillis: 10_000,
-    idleTimeoutMillis: 30_000,
+    // A new connection to Neon costs a DNS lookup and a TLS handshake to the US.
+    // Keep idle connections for 5 minutes so clicks reuse a warm one.
+    idleTimeoutMillis: 300_000,
     keepAlive: true,
   });
   // Without a listener, an idle connection dropped by Neon would crash the process.
@@ -56,9 +58,23 @@ if (process.env.NODE_ENV !== "production") globalForDb.dbPool = pool;
 
 export const db = drizzle({ client: pool, schema });
 
-const transientCodes = new Set(["ECONNRESET", "ETIMEDOUT", "EPIPE", "08P01", "57P01"]);
+const transientCodes = new Set([
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "EPIPE",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "08000",
+  "08003",
+  "08006",
+  "08P01",
+  "57P01",
+  "57P03",
+]);
 
-const transientMessage = /connection terminated|timeout exceeded when trying to connect/i;
+const transientMessage =
+  /connection terminated|timeout exceeded when trying to connect|server closed the connection|terminating connection|Connection ended unexpectedly/i;
 
 function isTransient(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
@@ -77,7 +93,7 @@ export async function withDbRetry<T>(run: () => Promise<T>, attempts = 3): Promi
       return await run();
     } catch (error) {
       if (attempt >= attempts || !isTransient(error)) throw error;
-      await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+      await new Promise((resolve) => setTimeout(resolve, attempt * 300));
     }
   }
 }

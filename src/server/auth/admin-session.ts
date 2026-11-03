@@ -1,8 +1,10 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 import { and, eq, gt, lt, sql } from "drizzle-orm";
+import { cacheLife } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import { db, withDbRetry } from "@/server/db";
 import { adminSessions, adminUsers, auditLogs, authAttempts } from "@/server/db/schema";
@@ -93,7 +95,12 @@ export async function createAdminSession(admin: AdminIdentity) {
   });
 }
 
-export async function getAdmin(): Promise<AdminIdentity | null> {
+// Reads the session cookie, so it uses a private cache: the result lives only in this
+// admin's browser, which lets admin links prefetch the whole page before the click.
+// On the server it is still checked on every request.
+async function lookupAdmin(): Promise<AdminIdentity | null> {
+  "use cache: private";
+  cacheLife({ stale: 300 });
   const cookieStore = await cookies();
   const token = cookieStore.get(cookieName)?.value;
   if (!token) return null;
@@ -111,6 +118,9 @@ export async function getAdmin(): Promise<AdminIdentity | null> {
   );
   return session ?? null;
 }
+
+// The admin layout, sidebar and page all ask for the admin. cache() makes that one lookup per request.
+export const getAdmin = cache(lookupAdmin);
 
 export async function requireAdmin(required: AdminRole = "staff") {
   const admin = await getAdmin();

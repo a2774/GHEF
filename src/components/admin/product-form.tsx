@@ -16,6 +16,8 @@ import { type FormEvent, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { Input } from "@/components/ui/input";
+import { ROOMS } from "@/lib/catalog-taxonomy";
+import { productTitleMaxLength } from "@/lib/limits";
 import { toast } from "@/components/ui/sonner";
 import {
   deleteProduct,
@@ -113,6 +115,7 @@ export function ProductForm({
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+  const [titleLength, setTitleLength] = useState(product?.title.length ?? 0);
   const [pending, startTransition] = useTransition();
 
   function updateRow(key: number, field: keyof VariantRow, value: string) {
@@ -223,6 +226,10 @@ export function ProductForm({
       status: form.get("status") as ProductInput["status"],
       isFeatured: form.get("isFeatured") === "on",
       isBestseller: form.get("isBestseller") === "on",
+      isReadyToDispatch: form.get("isReadyToDispatch") === "on",
+      rooms: form.getAll("rooms").map(String),
+      pileHeight: String(form.get("pileHeight") ?? ""),
+      backing: String(form.get("backing") ?? ""),
       images: uploadedMedia,
       variants: rows.map(({ id, size, color, sku, price, mrp, stock }) => ({
         id,
@@ -267,10 +274,12 @@ export function ProductForm({
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Rug Name" required>
+          <Field label="Rug Name" required subtext={`${titleLength}/${productTitleMaxLength} characters`}>
             <Input
               name="title"
               required
+              maxLength={productTitleMaxLength}
+              onChange={(event) => setTitleLength(event.target.value.length)}
               defaultValue={product?.title}
               placeholder="e.g. Mirzapur Heritage Hand-Tufted Wool Rug"
               className={inputClass}
@@ -355,7 +364,57 @@ export function ProductForm({
               />
               <span>Artisan Bestseller Badge</span>
             </label>
+            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                name="isReadyToDispatch"
+                defaultChecked={product?.isReadyToDispatch}
+                className="size-4 rounded border-slate-300 text-slate-900 focus:ring-[#bef264]"
+              />
+              <span>Ready to Dispatch (ships from stock)</span>
+            </label>
           </div>
+
+          <Field label="Pile Height" subtext="Optional, e.g. 12 mm">
+            <Input
+              name="pileHeight"
+              maxLength={40}
+              defaultValue={product?.pileHeight ?? ""}
+              placeholder="e.g. 12 mm"
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Backing" subtext="Optional, e.g. Anti-skid cotton canvas">
+            <Input
+              name="backing"
+              maxLength={80}
+              defaultValue={product?.backing ?? ""}
+              placeholder="e.g. Anti-skid cotton canvas"
+              className={inputClass}
+            />
+          </Field>
+
+          <fieldset className="md:col-span-2">
+            <legend className="text-xs font-semibold text-slate-700">Shop by Room</legend>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {ROOMS.map((room) => (
+                <label
+                  key={room.slug}
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 has-checked:border-slate-900 has-checked:bg-slate-900 has-checked:text-white"
+                >
+                  <input
+                    type="checkbox"
+                    name="rooms"
+                    value={room.slug}
+                    defaultChecked={product?.rooms?.includes(room.slug)}
+                    className="sr-only"
+                  />
+                  {room.name}
+                </label>
+              ))}
+            </div>
+          </fieldset>
         </div>
       </section>
 

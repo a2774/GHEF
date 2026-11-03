@@ -1,7 +1,7 @@
 "use server";
 
 import { eq, not } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 
 import { logAdminAction, requireAdmin } from "@/server/auth/admin-session";
@@ -57,6 +57,9 @@ export async function createCoupon(
   if (inserted.length === 0) return "That coupon code already exists. Please choose another code.";
 
   await logAdminAction(admin, "create", "coupon", inserted[0].id, code);
+  // Product pages list live coupons, so refresh them too.
+  updateTag("storefront");
+  updateTag("admin");
   revalidatePath("/admin/coupons");
   return null;
 }
@@ -71,6 +74,9 @@ export async function toggleCoupon(id: number) {
       .returning({ id: coupons.id, isActive: coupons.isActive, code: coupons.code }),
   );
   await logAdminAction(admin, "toggle", "coupon", id);
+  // Product pages list live coupons, so refresh them too.
+  updateTag("storefront");
+  updateTag("admin");
   revalidatePath("/admin/coupons");
   return updated;
 }
@@ -79,6 +85,9 @@ export async function deleteCoupon(id: number) {
   const admin = await requireAdmin("admin");
   await withDbRetry(async () => db.delete(coupons).where(eq(coupons.id, id)));
   await logAdminAction(admin, "delete", "coupon", id);
+  // Product pages list live coupons, so refresh them too.
+  updateTag("storefront");
+  updateTag("admin");
   revalidatePath("/admin/coupons");
   return { success: true };
 }

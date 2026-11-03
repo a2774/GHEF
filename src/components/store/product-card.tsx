@@ -13,6 +13,8 @@ type ProductCardData = {
   priceFromPaise: number | null;
   mrpFromPaise?: number | null;
   stock?: number;
+  isBestseller?: boolean;
+  isReadyToDispatch?: boolean;
   primaryImageId: string | null;
 };
 
@@ -21,7 +23,8 @@ export function ProductCard({ product }: { product: ProductCardData }) {
   const discount = price !== null && mrp && mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
 
   return (
-    <Link href={`/products/${product.slug}`} className="group">
+    // prefetch: the product page is cached, so loading it before the click is cheap and makes it open instantly.
+    <Link href={`/products/${product.slug}`} prefetch className="group">
       <div className="relative flex aspect-[4/5] items-center justify-center overflow-hidden rounded-3xl bg-muted">
         {product.primaryImageId ? (
           <ProductPhoto
@@ -40,6 +43,11 @@ export function ProductCard({ product }: { product: ProductCardData }) {
         {discount > 0 && (
           <span className="liquid-glass absolute top-3 left-3 rounded-full px-3 py-1 text-sm text-primary-foreground">
             {discount}% off
+          </span>
+        )}
+        {(product.isReadyToDispatch || product.isBestseller) && (
+          <span className="absolute top-3 right-3 rounded-full bg-background/90 px-3 py-1 text-sm text-foreground">
+            {product.isReadyToDispatch ? "Ready to ship" : "Bestseller"}
           </span>
         )}
       </div>

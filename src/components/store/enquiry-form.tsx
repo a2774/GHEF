@@ -5,17 +5,23 @@ import { type FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const enquiryTypes = [
-  { value: "custom", label: "Custom size" },
-  { value: "bulk", label: "Bulk or export" },
-];
+import { ENQUIRY_TYPES, type EnquiryTypeKey } from "@/lib/catalog-taxonomy";
+
+const defaultTypes: EnquiryTypeKey[] = ["custom", "bulk"];
 
 const fieldClass = "h-12 rounded-2xl bg-card px-4 text-base md:text-base";
 
 type Status = "idle" | "saving" | "done" | "error";
 
-export function EnquiryForm() {
-  const [type, setType] = useState(enquiryTypes[0].value);
+export function EnquiryForm({
+  types = defaultTypes,
+  placeholder = "Room size and what you have in mind",
+}: {
+  types?: EnquiryTypeKey[];
+  placeholder?: string;
+}) {
+  const enquiryTypes = types.map((value) => ({ value, label: ENQUIRY_TYPES[value] }));
+  const [type, setType] = useState<EnquiryTypeKey>(types[0]);
   const [status, setStatus] = useState<Status>("idle");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -45,6 +51,7 @@ export function EnquiryForm() {
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-3 rounded-3xl bg-background p-5 sm:p-8">
+      {enquiryTypes.length > 1 && (
       <div className="flex flex-wrap gap-2">
         {enquiryTypes.map(({ value, label }) => (
           <button
@@ -58,6 +65,7 @@ export function EnquiryForm() {
           </button>
         ))}
       </div>
+      )}
       <Input name="name" required autoComplete="name" aria-label="Your name" placeholder="Your name" className={fieldClass} />
       <Input
         name="phone"
@@ -72,8 +80,8 @@ export function EnquiryForm() {
         name="message"
         required
         rows={3}
-        aria-label="Room size and what you have in mind"
-        placeholder="Room size and what you have in mind"
+        aria-label={placeholder}
+        placeholder={placeholder}
         className="w-full rounded-2xl border border-input bg-card px-4 py-3 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
       />
       <Button type="submit" disabled={status === "saving"} className="h-14 w-full rounded-full text-base">

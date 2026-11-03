@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { siteUrl } from "@/lib/site";
 
 interface GatewayEvent {
   id: string;
@@ -102,7 +103,9 @@ export function RazorpayClient() {
   const [copied, setCopied] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const webhookUrl = typeof window !== "undefined" ? `${window.location.origin}/api/webhooks/razorpay` : "https://gangahandmade.com/api/webhooks/razorpay";
+  // Same value on the server and in the browser, and the path of the real webhook route
+  // (src/app/api/payments/razorpay/webhook). Set NEXT_PUBLIC_SITE_URL to the live domain.
+  const webhookUrl = `${siteUrl}/api/payments/razorpay/webhook`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(webhookUrl);

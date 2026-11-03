@@ -12,6 +12,7 @@ import { auth, googleEnabled, signIn, signOut } from "@/server/auth/customer";
 import { hashPassword } from "@/server/auth/password";
 import { db, withDbRetry } from "@/server/db";
 import { users } from "@/server/db/schema";
+import { markAdminDataChanged } from "@/server/services/admin-cache";
 
 export type AuthResult = { ok: true } | { ok: false; error: string };
 
@@ -92,6 +93,7 @@ export async function registerCustomer(form: FormData): Promise<AuthResult> {
     }
     throw error;
   }
+  markAdminDataChanged();
 
   return signInWithPassword(email, password);
 }

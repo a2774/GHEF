@@ -24,6 +24,7 @@ import {
   razorpayEnabled,
   signatureMatches,
 } from "@/server/services/razorpay";
+import { markAdminDataChanged } from "@/server/services/admin-cache";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -144,6 +145,7 @@ export async function placeOrderAction(input: {
 
   try {
     const order = await placeOrder(userId, input);
+    markAdminDataChanged();
     updateTag("products");
     revalidatePath("/cart");
     revalidatePath("/account/orders");
@@ -197,6 +199,7 @@ export async function confirmRazorpayPayment(input: {
   }
 
   await markPaymentPaid(input.orderId, input.paymentId);
+  markAdminDataChanged();
   revalidatePath("/account/orders");
   revalidatePath("/cart");
   return { ok: true };
@@ -213,7 +216,10 @@ export async function reportPaymentDismissed(providerOrderId: string) {
       .innerJoin(orders, eq(payments.orderId, orders.id))
       .where(and(eq(payments.providerOrderId, providerOrderId), eq(orders.userId, userId))),
   );
-  if (owned) await markPaymentFailed(providerOrderId);
+  if (owned) {
+    await markPaymentFailed(providerOrderId);
+    markAdminDataChanged();
+  }
 }
 
 export async function cancelMyOrder(orderId: number, orderNumber: string): Promise<ActionResult> {
@@ -226,6 +232,7 @@ export async function cancelMyOrder(orderId: number, orderNumber: string): Promi
     if (error instanceof OrderError) return { ok: false, error: error.message };
     throw error;
   }
+  markAdminDataChanged();
   updateTag("products");
   revalidatePath(`/account/orders/${orderNumber}`);
   revalidatePath("/account/orders");
@@ -247,6 +254,7 @@ export async function requestOrderReturn(orderId: number, orderNumber: string, r
     if (error instanceof OrderError) return { ok: false, error: error.message };
     throw error;
   }
+  markAdminDataChanged();
   revalidatePath(`/account/orders/${orderNumber}`);
   return { ok: true };
 }

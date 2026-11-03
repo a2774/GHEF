@@ -70,6 +70,15 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
               </li>
             ))}
           </ul>
+          {order.discountPaise > 0 && (
+            <div className="mt-3 border-t border-slate-200 pt-3 text-xs text-slate-600">
+              <div className="flex justify-between">
+                <span>Discounts</span>
+                <span>-{formatPaise(order.discountPaise)}</span>
+              </div>
+              {order.discountNote && <p className="mt-1 text-slate-400">{order.discountNote}</p>}
+            </div>
+          )}
           <div className="mt-3 flex justify-between border-t border-slate-200 pt-3 text-sm font-bold text-slate-950">
             <span>Total Amount</span>
             <span>{formatPaise(order.totalPaise)}</span>

@@ -4,6 +4,11 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,
+  experimental: {
+    // Keep pages the visitor has already opened in the browser for 30 seconds, so going
+    // back to them is instant. Any save or form action clears this cache straight away.
+    staleTimes: { dynamic: 30 },
+  },
   images: {
     remotePatterns: [
       {

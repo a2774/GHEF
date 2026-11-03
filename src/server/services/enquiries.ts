@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 
+import { ENQUIRY_TYPES } from "@/lib/catalog-taxonomy";
 import { db, withDbRetry } from "@/server/db";
 import { enquiries } from "@/server/db/schema";
 import { notifyOwner } from "@/server/services/notifications";
@@ -7,7 +8,7 @@ import { notifyOwner } from "@/server/services/notifications";
 export type NewEnquiry = typeof enquiries.$inferInsert;
 export type Enquiry = typeof enquiries.$inferSelect;
 
-export const enquiryLabels = { custom: "Custom size", bulk: "Bulk or export" } as const;
+export const enquiryLabels = ENQUIRY_TYPES;
 
 export async function createEnquiry(enquiry: NewEnquiry) {
   await withDbRetry(async () => db.insert(enquiries).values(enquiry));

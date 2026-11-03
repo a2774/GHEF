@@ -1,5 +1,7 @@
 import { and, count, desc, eq, ilike, lte, notInArray, or, sql, sum } from "drizzle-orm";
 
+import { cacheLife, cacheTag } from "next/cache";
+
 import { db, withDbRetry } from "@/server/db";
 import {
   categories,
@@ -16,30 +18,37 @@ import {
   users,
 } from "@/server/db/schema";
 
+import { adminDataTag } from "./admin-cache";
+
 export const lowStockThreshold = 3;
 
 export type OrderStatus = (typeof orderStatus.enumValues)[number];
 
 export async function getDashboardData() {
+  "use cache";
+  cacheTag(adminDataTag);
+  // Admin pages render from this cache, so links can prefetch them. Any change clears it.
+  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
   return withDbRetry(async () => {
-    const [orderTotals] = await db.select({ total: count() }).from(orders);
-    const [revenue] = await db
+    // The queries below are independent, so they run together instead of one after another.
+    const orderTotalsQuery = db.select({ total: count() }).from(orders);
+    const revenueQuery = db
       .select({ total: sum(orders.totalPaise) })
       .from(orders)
       .where(eq(orders.paymentStatus, "paid"));
-    const [productTotals] = await db.select({ total: count() }).from(products);
-    const [categoryTotals] = await db.select({ total: count() }).from(categories);
-    const [customerTotals] = await db.select({ total: count() }).from(users);
-    const [enquiryTotals] = await db.select({ total: count() }).from(enquiries);
-    const [newEnquiryTotals] = await db
+    const productTotalsQuery = db.select({ total: count() }).from(products);
+    const categoryTotalsQuery = db.select({ total: count() }).from(categories);
+    const customerTotalsQuery = db.select({ total: count() }).from(users);
+    const enquiryTotalsQuery = db.select({ total: count() }).from(enquiries);
+    const newEnquiryTotalsQuery = db
       .select({ total: count() })
       .from(enquiries)
       .where(eq(enquiries.status, "new"));
-    const [subscriberTotals] = await db
+    const subscriberTotalsQuery = db
       .select({ total: count() })
       .from(newsletterSubscribers);
 
-    const lowStock = await db
+    const lowStockQuery = db
       .select({
         id: productVariants.id,
         productId: products.id,
@@ -54,20 +63,20 @@ export async function getDashboardData() {
       .orderBy(productVariants.stock)
       .limit(8);
 
-    const recentOrders = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(5);
+    const recentOrdersQuery = db.select().from(orders).orderBy(desc(orders.createdAt)).limit(5);
 
-    const recentEnquiries = await db
+    const recentEnquiriesQuery = db
       .select()
       .from(enquiries)
       .orderBy(desc(enquiries.createdAt))
       .limit(4);
 
-    const statusCounts = await db
+    const statusCountsQuery = db
       .select({ status: orders.status, total: count() })
       .from(orders)
       .groupBy(orders.status);
 
-    const bestSellers = await db
+    const bestSellersQuery = db
       .select({
         title: orderItems.title,
         units: sql<number>`sum(${orderItems.quantity})::int`,
@@ -79,7 +88,7 @@ export async function getDashboardData() {
       .orderBy(desc(sql`sum(${orderItems.quantity})`))
       .limit(5);
 
-    const revenueByDay = await db
+    const revenueByDayQuery = db
       .select({
         day: sql<string>`to_char(${orders.createdAt} at time zone 'Asia/Kolkata', 'YYYY-MM-DD')`,
         totalPaise: sql<number>`sum(${orders.totalPaise})::bigint`.mapWith(Number),
@@ -93,6 +102,38 @@ export async function getDashboardData() {
       )
       .groupBy(sql`to_char(${orders.createdAt} at time zone 'Asia/Kolkata', 'YYYY-MM-DD')`)
       .orderBy(desc(sql`to_char(${orders.createdAt} at time zone 'Asia/Kolkata', 'YYYY-MM-DD')`));
+
+    const [
+      [orderTotals],
+      [revenue],
+      [productTotals],
+      [categoryTotals],
+      [customerTotals],
+      [enquiryTotals],
+      [newEnquiryTotals],
+      [subscriberTotals],
+      lowStock,
+      recentOrders,
+      recentEnquiries,
+      statusCounts,
+      bestSellers,
+      revenueByDay,
+    ] = await Promise.all([
+      orderTotalsQuery,
+      revenueQuery,
+      productTotalsQuery,
+      categoryTotalsQuery,
+      customerTotalsQuery,
+      enquiryTotalsQuery,
+      newEnquiryTotalsQuery,
+      subscriberTotalsQuery,
+      lowStockQuery,
+      recentOrdersQuery,
+      recentEnquiriesQuery,
+      statusCountsQuery,
+      bestSellersQuery,
+      revenueByDayQuery,
+    ]);
 
     const countFor = (statuses: string[]) =>
       statusCounts
@@ -121,6 +162,10 @@ export async function getDashboardData() {
 }
 
 export async function listAdminProducts() {
+  "use cache";
+  cacheTag(adminDataTag);
+  // Admin pages render from this cache, so links can prefetch them. Any change clears it.
+  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
   return withDbRetry(async () =>
     db
       .select({
@@ -149,6 +194,10 @@ export async function listAdminProducts() {
 }
 
 export async function listCategories() {
+  "use cache";
+  cacheTag(adminDataTag);
+  // Admin pages render from this cache, so links can prefetch them. Any change clears it.
+  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
   return withDbRetry(async () =>
     db
       .select({
@@ -166,24 +215,30 @@ export async function listCategories() {
 }
 
 export async function getAdminProduct(id: number) {
+  "use cache";
+  cacheTag(adminDataTag);
+  // Admin pages render from this cache, so links can prefetch them. Any change clears it.
+  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
   return withDbRetry(async () => {
-    const [product] = await db.select().from(products).where(eq(products.id, id));
+    const [[product], variants, images] = await Promise.all([
+      db.select().from(products).where(eq(products.id, id)),
+      db.select().from(productVariants).where(eq(productVariants.productId, id)).orderBy(productVariants.id),
+      db
+        .select()
+        .from(productImages)
+        .where(eq(productImages.productId, id))
+        .orderBy(desc(productImages.isPrimary), productImages.id),
+    ]);
     if (!product) return null;
-    const variants = await db
-      .select()
-      .from(productVariants)
-      .where(eq(productVariants.productId, id))
-      .orderBy(productVariants.id);
-    const images = await db
-      .select()
-      .from(productImages)
-      .where(eq(productImages.productId, id))
-      .orderBy(desc(productImages.isPrimary), productImages.id);
     return { product, variants, images };
   });
 }
 
 export async function listOrders(search: string, status: OrderStatus | undefined) {
+  "use cache";
+  cacheTag(adminDataTag);
+  // Admin pages render from this cache, so links can prefetch them. Any change clears it.
+  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
   const term = `%${search.trim()}%`;
   return withDbRetry(async () =>
     db
@@ -208,12 +263,18 @@ export async function listOrders(search: string, status: OrderStatus | undefined
 }
 
 export async function getAdminOrder(id: number) {
+  "use cache";
+  cacheTag(adminDataTag);
+  // Admin pages render from this cache, so links can prefetch them. Any change clears it.
+  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
   return withDbRetry(async () => {
-    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+    const [[order], items, [returnRequest], paymentRows] = await Promise.all([
+      db.select().from(orders).where(eq(orders.id, id)),
+      db.select().from(orderItems).where(eq(orderItems.orderId, id)),
+      db.select().from(returnRequests).where(eq(returnRequests.orderId, id)),
+      db.select().from(payments).where(eq(payments.orderId, id)),
+    ]);
     if (!order) return null;
-    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, id));
-    const [returnRequest] = await db.select().from(returnRequests).where(eq(returnRequests.orderId, id));
-    const paymentRows = await db.select().from(payments).where(eq(payments.orderId, id));
     return { order, items, returnRequest: returnRequest ?? null, payments: paymentRows };
   });
 }

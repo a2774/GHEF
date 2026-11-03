@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { markPaymentFailed, markPaymentPaid } from "@/server/services/orders";
 import { signatureMatches } from "@/server/services/razorpay";
+import { markAdminDataChanged } from "@/server/services/admin-cache";
 
 type WebhookEvent = {
   event?: string;
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
   if (payment?.id && payment.order_id) {
     if (event.event === "payment.captured") await markPaymentPaid(payment.order_id, payment.id);
     if (event.event === "payment.failed") await markPaymentFailed(payment.order_id);
+    markAdminDataChanged();
   }
   return NextResponse.json({ received: true });
 }

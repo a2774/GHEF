@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { isEnquiryType } from "@/lib/catalog-taxonomy";
 import { consumeAttempt } from "@/server/auth/admin-session";
 import { createEnquiry } from "@/server/services/enquiries";
+import { markAdminDataChanged } from "@/server/services/admin-cache";
 
 const phonePattern = /^\+?[0-9 ()-]{7,20}$/;
 
@@ -27,7 +29,7 @@ export async function POST(request: Request) {
   const phone = cleanText(body?.phone, 20);
   const message = cleanText(body?.message, 2000);
 
-  if ((type !== "custom" && type !== "bulk") || !name || !phonePattern.test(phone) || !message) {
+  if (!isEnquiryType(type) || !name || !phonePattern.test(phone) || !message) {
     return NextResponse.json(
       { error: "Add your name, phone number and a short message." },
       { status: 400 },
@@ -36,6 +38,7 @@ export async function POST(request: Request) {
 
   try {
     await createEnquiry({ type, name, phone, message });
+    markAdminDataChanged();
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("Failed to create enquiry:", error);

@@ -74,7 +74,7 @@ async function Checkout() {
         </details>
       </div>
 
-      <aside className="space-y-3 rounded-3xl bg-muted p-6 lg:sticky lg:top-28 lg:self-start">
+      <aside className="space-y-3 rounded-3xl bg-muted p-6 lg:sticky lg:top-36 lg:self-start">
         <h2 className="text-2xl font-semibold tracking-tight">Order summary</h2>
         <ul className="space-y-2 text-base">
           {cart.lines
@@ -89,21 +89,38 @@ async function Checkout() {
             ))}
         </ul>
         <dl className="space-y-2 border-t border-border pt-3 text-lg">
-          {cart.totals.discountPaise > 0 && (
-            <div className="flex justify-between">
-              <dt>Discount</dt>
-              <dd>-{formatPaise(cart.totals.discountPaise)}</dd>
+          <div className="flex justify-between">
+            <dt>Subtotal</dt>
+            <dd>{formatPaise(cart.pricing.subtotalPaise)}</dd>
+          </div>
+          {cart.pricing.discounts.map((discount) => (
+            <div key={discount.kind} className="flex justify-between gap-4">
+              <dt>{discount.label}</dt>
+              <dd className="whitespace-nowrap">-{formatPaise(discount.paise)}</dd>
             </div>
-          )}
+          ))}
           <div className="flex justify-between">
             <dt>Shipping</dt>
             <dd>{shippingPaise === 0 ? "Free" : formatPaise(shippingPaise)}</dd>
           </div>
-          <div className="flex justify-between font-semibold">
-            <dt>Total</dt>
-            <dd>{formatPaise(cart.totals.totalPaise + shippingPaise)}</dd>
-          </div>
+          {codEnabled && (
+            <div className="flex justify-between font-semibold">
+              <dt>Total, cash on delivery</dt>
+              <dd>{formatPaise(cart.pricing.totalPaise + shippingPaise)}</dd>
+            </div>
+          )}
+          {razorpayEnabled() && (
+            <div className="flex justify-between font-semibold">
+              <dt>Total, paid online</dt>
+              <dd>{formatPaise(cart.prepaidPricing.totalPaise + shippingPaise)}</dd>
+            </div>
+          )}
         </dl>
+        {razorpayEnabled() && cart.pricing.prepaidSavingPaise > 0 && (
+          <p className="text-base">
+            Paying online saves you {formatPaise(cart.pricing.prepaidSavingPaise)} more.
+          </p>
+        )}
         <p className="text-base text-muted-foreground">Prices include taxes. We will share delivery details after you order.</p>
       </aside>
     </div>
@@ -112,7 +129,7 @@ async function Checkout() {
 
 export default function CheckoutPage() {
   return (
-    <main className="mx-auto max-w-7xl px-4 pt-28 pb-20 sm:px-6 lg:px-8 lg:pt-32">
+    <main className="mx-auto max-w-7xl px-4 pt-36 pb-20 sm:px-6 lg:px-8 lg:pt-40">
       <h1 className="text-title font-semibold">Checkout.</h1>
       <div className="mt-8">
         <Suspense fallback={<div className="h-80 animate-pulse rounded-3xl bg-muted motion-reduce:animate-none" />}>
