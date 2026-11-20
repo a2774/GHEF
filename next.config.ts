@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
     // Keep pages the visitor has already opened in the browser for 30 seconds, so going
     // back to them is instant. Any save or form action clears this cache straight away.
     staleTimes: { dynamic: 30 },
+    // Set by `next upgrade --agent=security` (Next.js 16.4.3 to 16.4.6): tells the Next.js CLI which kind of
+    // upgrade notice to show when a published security advisory affects the installed version.
+    agentUpgrade: "security",
   },
   images: {
     // AVIF is smaller than WebP where the browser supports it; WebP is the fallback.
