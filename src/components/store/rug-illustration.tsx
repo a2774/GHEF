@@ -15,11 +15,14 @@ export function RugIllustration({
   palette = "Ivory",
   medallion = true,
   viewBox,
+  priority = false,
 }: {
   className?: string;
   palette?: RugPalette;
   medallion?: boolean;
   viewBox?: string;
+  /** For a drawing that is on screen when the page opens: it is fetched at once, not when scrolled near. */
+  priority?: boolean;
 }) {
   const view = viewBox && viewBox !== rugViewBoxes.full ? "close" : "full";
 
@@ -29,7 +32,8 @@ export function RugIllustration({
     <img
       src={`/rug-art/${rugFileName(palette, medallion, view)}`}
       alt="Illustration of a hand-woven carpet"
-      loading="lazy"
+      loading={priority ? "eager" : "lazy"}
+      fetchPriority={priority ? "high" : undefined}
       decoding="async"
       draggable={false}
       className={className}

@@ -53,7 +53,16 @@ function Rating({ rating, count }: { rating: number; count: number }) {
  * h3; on a page where the cards come straight after the page title (the products page) it is h2,
  * so the headings never skip a level.
  */
-export function ProductCard({ product, headingAs: Heading = "h3" }: { product: ProductCardData; headingAs?: "h2" | "h3" }) {
+export function ProductCard({
+  product,
+  headingAs: Heading = "h3",
+  priority = false,
+}: {
+  product: ProductCardData;
+  headingAs?: "h2" | "h3";
+  /** For the first cards of a page, which are on screen when it opens: their photo is not lazy-loaded. */
+  priority?: boolean;
+}) {
   const { priceFromPaise: price, mrpFromPaise: mrp, rating, reviewCount = 0 } = product;
   const discount = price !== null && mrp && mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
 
@@ -66,12 +75,14 @@ export function ProductCard({ product, headingAs: Heading = "h3" }: { product: P
             publicId={product.primaryImageId}
             alt={product.title}
             sizes="(min-width: 1024px) 25vw, 50vw"
+            priority={priority}
             className="object-cover transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none"
           />
         ) : (
           <RugIllustration
             palette={rugPaletteFor(product.color)}
             medallion={product.category === "Hand Knotted"}
+            priority={priority}
             className="w-2/3 drop-shadow-lg transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none"
           />
         )}

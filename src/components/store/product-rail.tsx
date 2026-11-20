@@ -77,7 +77,7 @@ export async function ProductRail({
       </ul>
       <div className="mt-5 text-center">
         {/* The padding makes the tap area 44px high; the negative margin keeps the layout as it was. */}
-        <Link href={href} className="-my-2 inline-block px-3 py-2 text-lg underline underline-offset-4 hover:opacity-70">
+        <Link href={href} prefetch className="-my-2 inline-block px-3 py-2 text-lg underline underline-offset-4 hover:opacity-70">
           View all
         </Link>
       </div>

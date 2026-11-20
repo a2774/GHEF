@@ -317,8 +317,9 @@ async function Catalog({ searchParams }: { searchParams: Promise<SearchParams> }
                 ) : undefined
               }
             >
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} headingAs="h2" />
+              {/* The first two cards are on screen when the page opens (two columns on a phone), so their photos load at once. */}
+              {products.map((product, index) => (
+                <ProductCard key={product.id} product={product} headingAs="h2" priority={index < 2} />
               ))}
             </ProductListing>
             {pageCount > 1 && (

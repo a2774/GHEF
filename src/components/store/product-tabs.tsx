@@ -47,7 +47,7 @@ function PolicyText({ sections }: { sections: { heading?: string; body: string }
       {sections.map(({ heading, body }, index) => (
         <div key={index}>
           {heading && (
-            <h3 className="mb-3 text-2xl font-medium tracking-tight text-[#111] sm:text-[2rem]">{heading}</h3>
+            <h2 className="mb-3 text-2xl font-medium tracking-tight text-[#111] sm:text-[2rem]">{heading}</h2>
           )}
           {body && <AdminText text={body} />}
         </div>
@@ -153,7 +153,7 @@ export function ProductTabs({
             <p className="mt-3 text-[0.95rem] text-[#666]">
               Handmade pieces vary a little in shade and size. That is the mark of the hand, not a flaw.
             </p>
-            <h3 className="mt-8 text-xl font-semibold tracking-tight text-[#111]">Care</h3>
+            <h2 className="mt-8 text-xl font-semibold tracking-tight text-[#111]">Care</h2>
             <div className="mt-2">
               <AdminText text={purchase.tabs.care || defaultCare} />
             </div>

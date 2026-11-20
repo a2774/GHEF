@@ -13,10 +13,12 @@ import { OfferTicker } from "./offer-ticker";
 import { ShopMenu } from "./shop-menu";
 import { SiteSearch } from "./site-search";
 
+// `prefetch` loads the whole listing (the cached products for that link) before the click, so the
+// page opens without a loading state. It costs one server request per link, so only the busiest one has it.
 const navItems = [
-  { label: "Ready to ship", href: "/products?ready=on" },
-  { label: "Custom", href: "/services/custom-carpets" },
-  { label: "Our Story", href: "/about" },
+  { label: "Ready to ship", href: "/products?ready=on", prefetch: true },
+  { label: "Custom", href: "/services/custom-carpets", prefetch: false },
+  { label: "Our Story", href: "/about", prefetch: false },
 ];
 
 async function loadColumns() {
@@ -33,8 +35,8 @@ async function Navigation() {
     <>
       <nav aria-label="Main" className="hidden items-center gap-7 text-base whitespace-nowrap lg:flex">
         <ShopMenu columns={columns} />
-        {navItems.map(({ label, href }) => (
-          <Link key={label} href={href} className="transition-opacity hover:opacity-70">
+        {navItems.map(({ label, href, prefetch }) => (
+          <Link key={label} href={href} prefetch={prefetch ? true : "auto"} className="transition-opacity hover:opacity-70">
             {label}
           </Link>
         ))}
