@@ -28,6 +28,18 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // Files in public/ have no fingerprint in their name, so by default the browser asks the server
+        // about each one on every page (an extra round trip). They change rarely (the hero photo files in
+        // public/images/hero are made by hand), so keep them for a day and let a stale copy show for up to
+        // a week while the browser refreshes it in the background.
+        source: "/images/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }],
+      },
+      {
+        source: "/brand-symbol.svg",
+        headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }],
+      },
+      {
         source: "/:path*",
         headers: [
           { key: "X-Frame-Options", value: "DENY" },
