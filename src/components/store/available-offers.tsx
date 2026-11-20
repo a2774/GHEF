@@ -22,7 +22,7 @@ function Highlighted({ text }: { text: string }) {
     <>
       {text.split(highlightPattern).map((part, index) =>
         index % 2 === 1 ? (
-          <strong key={index} className="font-semibold text-[#1f8a4c]">
+          <strong key={index} className="font-semibold text-[#18733c]">
             {part}
           </strong>
         ) : (
@@ -54,7 +54,7 @@ function CouponCode({ code }: { code: string }) {
       className="inline-flex items-center gap-1.5 rounded-[4px] border border-dashed border-[#b8a06a] bg-[#fffaf0] px-1.5 py-0.5 text-xs font-bold tracking-wider text-[#2b2622] transition-colors hover:bg-[#fdf1d6]"
     >
       {code}
-      {copied ? <Check className="size-3 text-[#1f8a4c]" /> : <Copy className="size-3 text-[#8a7a5c]" />}
+      {copied ? <Check className="size-3 text-[#18733c]" /> : <Copy className="size-3 text-[#8a7a5c]" />}
     </button>
   );
 }
@@ -67,13 +67,13 @@ export function AvailableOffers({ offers }: { offers: OfferCard[] }) {
       aria-labelledby="offers-heading"
       className="mt-7 min-w-0 rounded-xl border border-[#f0e2b6] bg-[#fef9ec] px-4 pt-3.5 pb-4 [contain:inline-size]"
     >
-      <h2
+      <p
         id="offers-heading"
-        className="flex items-center gap-2 border-b border-dashed border-[#ecd9a4] pb-2.5 text-xs font-bold tracking-[0.14em] text-[#6b1a1a] uppercase"
+        className="font-heading flex items-center gap-2 border-b border-dashed border-[#ecd9a4] pb-2.5 text-xs font-bold tracking-[0.14em] text-[#6b1a1a] uppercase"
       >
         <Tag className="size-4" strokeWidth={2} />
         Available offers
-      </h2>
+      </p>
 
       <ul className="-mr-4 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto pr-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {offers.map((offer) => (

@@ -61,7 +61,7 @@ async function ContactDetails() {
 
 export default function ContactPage() {
   return (
-    <main className="mx-auto max-w-7xl px-4 pt-36 pb-20 sm:px-6 lg:px-8 lg:pt-40">
+    <main className="mx-auto w-full max-w-7xl px-4 pt-36 pb-20 sm:px-6 lg:px-8 lg:pt-40">
       <h1 className="text-title font-semibold">Contact us.</h1>
       <p className="mt-3 max-w-2xl text-lg text-muted-foreground">
         Questions about a size, an order or a custom piece? We usually reply within a working day.{" "}

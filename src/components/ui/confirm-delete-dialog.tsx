@@ -16,7 +16,10 @@ import {
 import { toast } from "@/components/ui/sonner";
 
 interface ConfirmDeleteDialogProps {
-  trigger: React.ReactNode;
+  /** The button that opens the dialog. Leave it out to open the dialog with `open` instead, e.g. from a menu item. */
+  trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   title?: string;
   description?: string;
   itemName?: string;
@@ -28,6 +31,8 @@ interface ConfirmDeleteDialogProps {
 
 export function ConfirmDeleteDialog({
   trigger,
+  open: openProp,
+  onOpenChange,
   title = "Are you sure you want to delete this?",
   description = "This action is permanent and cannot be undone.",
   itemName,
@@ -36,8 +41,13 @@ export function ConfirmDeleteDialog({
   successMessage,
   onConfirm,
 }: ConfirmDeleteDialogProps) {
-  const [open, setOpen] = React.useState(false);
+  const [internalOpen, setInternalOpen] = React.useState(false);
   const [isPending, setIsPending] = React.useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = (next: boolean) => {
+    setInternalOpen(next);
+    onOpenChange?.(next);
+  };
 
   const handleConfirm = async () => {
     setIsPending(true);
@@ -57,7 +67,7 @@ export function ConfirmDeleteDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger render={trigger as React.ReactElement} />
+      {trigger && <AlertDialogTrigger render={trigger as React.ReactElement} />}
       <AlertDialogContent>
         <AlertDialogHeader>
           <div className="flex items-center gap-3">

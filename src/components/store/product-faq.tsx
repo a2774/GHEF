@@ -90,7 +90,7 @@ export function ProductFaq({ purchase, brandName }: { purchase: PurchaseInfo; br
                 className="size-4 shrink-0 text-[#555] transition-transform group-open:rotate-45"
               />
             </summary>
-            <p className="pb-5 text-[0.95rem] leading-relaxed text-[#777]">{answer}</p>
+            <p className="pb-5 text-[0.95rem] leading-relaxed text-[#666]">{answer}</p>
           </details>
         ))}
       </div>

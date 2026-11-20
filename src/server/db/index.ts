@@ -39,11 +39,17 @@ function createPool() {
     connectionString: connectionUrl.href,
     Client: IPv4Client,
     max: 10,
-    connectionTimeoutMillis: 10_000,
-    // A new connection to Neon costs a DNS lookup and a TLS handshake to the US.
-    // Keep idle connections for 5 minutes so clicks reuse a warm one.
-    idleTimeoutMillis: 300_000,
+    // A first connection takes about 3 seconds from India, and much longer when Neon has put the
+    // database to sleep or the network is slow. 10 seconds was too short and made whole pages fail
+    // with "timeout exceeded when trying to connect".
+    connectionTimeoutMillis: 20_000,
+    // A new connection to Neon costs a DNS lookup and a TLS handshake to the US, so idle ones are
+    // kept for 2 minutes and clicks reuse a warm one. Not longer: Neon and home routers drop idle
+    // connections after a few minutes, and a dead one only shows up as a timeout on the next click.
+    idleTimeoutMillis: 120_000,
+    // Small keep-alive packets stop a router from closing a quiet connection.
     keepAlive: true,
+    keepAliveInitialDelayMillis: 10_000,
   });
   // Without a listener, an idle connection dropped by Neon would crash the process.
   pool.on("error", (error) => console.error("Idle database connection closed:", error.message));

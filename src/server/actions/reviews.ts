@@ -5,6 +5,7 @@ import { z } from "zod";
 import { auth } from "@/server/auth/customer";
 import { db, withDbRetry } from "@/server/db";
 import { reviews } from "@/server/db/schema";
+import { markAdminDataChanged } from "@/server/services/admin-cache";
 import { hasPurchasedProduct } from "@/server/services/reviews";
 
 const reviewSchema = z.object({
@@ -36,6 +37,9 @@ export async function submitReview(
       .returning({ id: reviews.id }),
   );
   if (inserted.length === 0) return { ok: false, message: "You have already reviewed this item." };
+
+  // The new review waits for approval in the admin panel, so that page has to show it.
+  markAdminDataChanged();
 
   return { ok: true, message: "Thank you. Your review will appear after approval." };
 }

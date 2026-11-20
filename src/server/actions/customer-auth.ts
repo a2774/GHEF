@@ -144,6 +144,8 @@ export async function updateProfile(_previous: AuthResult | null, form: FormData
     throw error;
   }
 
+  // The admin Customers list shows this name and number.
+  markAdminDataChanged();
   revalidatePath("/account");
   return { ok: true };
 }

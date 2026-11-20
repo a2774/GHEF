@@ -12,7 +12,9 @@ async function loadTopCategories(count: number) {
   return listTopCategories(count);
 }
 
-export async function CategoryRails({ count = 2 }: { count?: number }) {
+// One row for every category that has live products (the cap only guards against a huge list),
+// each showing its four best selling products. "View all" on the row opens the whole category.
+export async function CategoryRails({ count = 20 }: { count?: number }) {
   let top: Awaited<ReturnType<typeof listTopCategories>> = [];
   try {
     top = await loadTopCategories(count);
@@ -26,6 +28,7 @@ export async function CategoryRails({ count = 2 }: { count?: number }) {
       title={`${name}.`}
       href={`/products?category=${slug}`}
       filters={{ category: slug, sort: "bestselling" }}
+      limit={4}
     />
   ));
 }

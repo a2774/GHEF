@@ -1,17 +1,12 @@
-import { desc } from "drizzle-orm";
-
 import { formatDate } from "@/components/admin/order-table";
 import { requireAdmin } from "@/server/auth/admin-session";
-import { db, withDbRetry } from "@/server/db";
-import { auditLogs } from "@/server/db/schema";
+import { listAuditLogs } from "@/server/services/admin";
 
 export const instant = false;
 
 export default async function AdminAuditPage() {
   await requireAdmin("owner");
-  const rows = await withDbRetry(async () =>
-    db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(200),
-  );
+  const rows = await listAuditLogs();
 
   return (
     <div className="space-y-6 pb-12">

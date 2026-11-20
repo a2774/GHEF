@@ -2,17 +2,19 @@ import { cacheLife, cacheTag } from "next/cache";
 import Link from "next/link";
 
 import { describeDbError } from "@/lib/db-error";
+import { sectionTop } from "@/lib/section-spacing";
 import { type CatalogFilters, emptyFilters, listCatalogProducts } from "@/server/services/catalog";
 
 import { ProductCard } from "./product-card";
+import { SectionHeading } from "./section-heading";
 
 export function ProductRailSkeleton() {
   return (
-    <div className="mx-auto max-w-7xl px-4 pt-20 sm:px-6 lg:px-8 lg:pt-32">
-      <div className="h-12 w-64 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="mt-12 grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
+    <div className={`mx-auto max-w-7xl px-4 ${sectionTop} sm:px-6 lg:px-8`}>
+      <div className="mx-auto h-10 w-64 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
         {[0, 1, 2, 3].map((item) => (
-          <div key={item} className="aspect-[4/5] animate-pulse rounded-3xl bg-muted motion-reduce:animate-none" />
+          <div key={item} className="aspect-[3/4] animate-pulse bg-muted motion-reduce:animate-none" />
         ))}
       </div>
     </div>
@@ -62,24 +64,23 @@ export async function ProductRail({
 
   return (
     <section id={id} className="scroll-mt-32">
-      <div className="mx-auto max-w-7xl px-4 pt-20 sm:px-6 lg:px-8 lg:pt-32">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-title font-semibold">{title}</h2>
-            {subtitle && <p className="mt-3 max-w-xl text-lg text-muted-foreground">{subtitle}</p>}
-          </div>
-          <Link href={href} className="pb-2 text-lg whitespace-nowrap underline-offset-4 hover:underline">
-            View all
-          </Link>
-        </div>
+      <div className={`mx-auto max-w-7xl px-4 ${sectionTop} sm:px-6 lg:px-8`}>
+        <SectionHeading>{title}</SectionHeading>
+        {subtitle && <p className="mx-auto mt-3 max-w-xl text-center text-lg text-muted-foreground">{subtitle}</p>}
       </div>
-      <ul className="no-scrollbar mx-auto mt-12 flex max-w-7xl snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-4 px-4 sm:scroll-px-6 sm:px-6 lg:grid lg:grid-cols-4 lg:gap-6 lg:overflow-visible lg:px-8">
+      <ul className="no-scrollbar mx-auto mt-6 flex max-w-7xl snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-4 px-4 sm:scroll-px-6 sm:px-6 lg:grid lg:grid-cols-4 lg:gap-6 lg:overflow-visible lg:px-8">
         {products.map((product) => (
           <li key={product.id} className="w-[72%] shrink-0 snap-start sm:w-[42%] lg:w-auto">
             <ProductCard product={product} />
           </li>
         ))}
       </ul>
+      <div className="mt-5 text-center">
+        {/* The padding makes the tap area 44px high; the negative margin keeps the layout as it was. */}
+        <Link href={href} className="-my-2 inline-block px-3 py-2 text-lg underline underline-offset-4 hover:opacity-70">
+          View all
+        </Link>
+      </div>
     </section>
   );
 }

@@ -1,10 +1,17 @@
 "use client";
 
-import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { ChevronLeft, ChevronRight, Expand, X } from "lucide-react";
-import { type KeyboardEvent, type PointerEvent, type RefObject, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, Expand } from "lucide-react";
+import dynamic from "next/dynamic";
+import { type KeyboardEvent, type PointerEvent, type RefObject, useEffect, useRef, useState } from "react";
 
 import { ProductPhoto } from "./product-photo";
+
+// The full-screen window needs a dialog library, so it is fetched while the browser is idle after
+// the page opens (or at the first click on a photo) instead of being part of the first load.
+const ProductViewer = dynamic(() => import("./product-viewer").then((module) => module.ProductViewer), {
+  ssr: false,
+});
+const loadViewer = () => import("./product-viewer");
 
 type GalleryImage = { id: number; publicId: string; alt: string };
 
@@ -31,6 +38,7 @@ function Slides({
   fit,
   sizes,
   className,
+  priority = false,
 }: {
   images: GalleryImage[];
   title: string;
@@ -40,10 +48,23 @@ function Slides({
   fit: "cover" | "contain";
   sizes: string;
   className: string;
+  /** The first photo is what the page opens on, so it is fetched first and the rest wait. */
+  priority?: boolean;
 }) {
   const swipe = useRef<{ x: number; moved: boolean } | null>(null);
   const justSwiped = useRef(false);
   const last = images.length - 1;
+
+  // On the page itself only the photo in view is loaded first. The next one is fetched a moment
+  // later, so the first photo gets the whole connection and the page does not wait on four others.
+  // The full-screen view is only opened on purpose, so it loads all of them at once.
+  const [nextReady, setNextReady] = useState(0);
+  useEffect(() => {
+    if (!priority) return;
+    const timer = window.setTimeout(() => setNextReady((current) => Math.max(current, index + 1)), index === 0 ? 2500 : 300);
+    return () => window.clearTimeout(timer);
+  }, [index, priority]);
+  const loadedUpTo = priority ? Math.max(nextReady, index) : last;
 
   function onKeyDown(event: KeyboardEvent) {
     if (event.key === "ArrowLeft") onChange(index - 1);
@@ -89,12 +110,15 @@ function Slides({
             aria-hidden={position !== index}
             className="relative h-full w-full shrink-0"
           >
-            <ProductPhoto
-              publicId={image.publicId}
-              alt={image.alt || `${title}, photo ${position + 1}`}
-              sizes={sizes}
-              className={`pointer-events-none ${fit === "cover" ? "object-cover" : "object-contain"}`}
-            />
+            {position <= loadedUpTo && (
+              <ProductPhoto
+                publicId={image.publicId}
+                alt={image.alt || `${title}, photo ${position + 1}`}
+                sizes={sizes}
+                priority={priority && position === 0}
+                className={`pointer-events-none ${fit === "cover" ? "object-cover" : "object-contain"}`}
+              />
+            )}
           </div>
         ))}
       </div>
@@ -194,9 +218,15 @@ function Thumbnails({
 export function ProductGallery({ images, title }: { images: GalleryImage[]; title: string }) {
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(false);
+  const [viewerMounted, setViewerMounted] = useState(false);
   const strip = useRef<HTMLDivElement>(null);
   const viewerStrip = useRef<HTMLDivElement>(null);
   const last = images.length - 1;
+
+  useEffect(() => {
+    const idle = window.requestIdleCallback ?? ((callback: () => void) => window.setTimeout(callback, 3000));
+    idle(() => void loadViewer());
+  }, []);
 
   function show(next: number, fromHover = false) {
     const clamped = Math.max(0, Math.min(last, next));
@@ -214,46 +244,33 @@ export function ProductGallery({ images, title }: { images: GalleryImage[]; titl
         title={title}
         index={index}
         onChange={show}
-        onOpen={() => setOpen(true)}
+        onOpen={() => {
+          setViewerMounted(true);
+          setOpen(true);
+        }}
         fit="cover"
         sizes="(min-width: 1024px) 60vw, 100vw"
         className="aspect-[4/3] bg-muted"
+        priority
       />
       <div className="mt-3">
         <Thumbnails images={images} index={index} onChange={show} stripRef={strip} />
       </div>
 
-      <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
-        <DialogPrimitive.Portal>
-          <DialogPrimitive.Backdrop className="fixed inset-0 z-[60] bg-ink data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
-          <DialogPrimitive.Popup
-            aria-label={`${title} photos, full screen`}
-            className="fixed inset-0 z-[60] flex flex-col gap-4 bg-ink p-4 text-primary-foreground outline-none sm:p-6"
-          >
-            <div className="flex items-center justify-between">
-              <DialogPrimitive.Title className="truncate font-heading text-xl font-semibold tracking-tight">
-                {title}
-              </DialogPrimitive.Title>
-              <DialogPrimitive.Close
-                aria-label="Close"
-                className="liquid-glass flex size-11 shrink-0 items-center justify-center rounded-full"
-              >
-                <X className="size-5" />
-              </DialogPrimitive.Close>
-            </div>
-            <Slides
-              images={images}
-              title={title}
-              index={index}
-              onChange={show}
-              fit="contain"
-              sizes="100vw"
-              className="min-h-0 flex-1 rounded-2xl"
-            />
-            <Thumbnails images={images} index={index} onChange={show} stripRef={viewerStrip} dark />
-          </DialogPrimitive.Popup>
-        </DialogPrimitive.Portal>
-      </DialogPrimitive.Root>
+      {viewerMounted && (
+        <ProductViewer open={open} onOpenChange={setOpen} title={title}>
+          <Slides
+            images={images}
+            title={title}
+            index={index}
+            onChange={show}
+            fit="contain"
+            sizes="100vw"
+            className="min-h-0 flex-1 rounded-2xl"
+          />
+          <Thumbnails images={images} index={index} onChange={show} stripRef={viewerStrip} dark />
+        </ProductViewer>
+      )}
     </div>
   );
 }

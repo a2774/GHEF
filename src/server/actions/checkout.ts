@@ -157,6 +157,8 @@ export async function placeOrderAction(input: {
     const providerOrderId =
       existing?.providerOrderId ?? (await createRazorpayOrder(order.totalPaise, order.orderNumber)).id;
     await recordPayment(order.id, providerOrderId, order.totalPaise);
+    // The payment record is what the admin Payments page lists, so it must show this new one.
+    markAdminDataChanged();
     return {
       ok: true,
       orderNumber: order.orderNumber,

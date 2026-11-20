@@ -191,7 +191,7 @@ export default function OurStorePage() {
                 <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-[#f3ede3]">
                   <Image src={image} alt={alt} fill sizes="(min-width: 1024px) 22vw, (min-width: 640px) 45vw, 100vw" className="object-cover" />
                 </div>
-                <p className="mt-5 text-sm font-medium tracking-[0.2em] text-[#8a7f74] tabular-nums">
+                <p className="mt-5 text-sm font-medium tracking-[0.2em] text-muted-foreground tabular-nums">
                   {String(index + 1).padStart(2, "0")}
                 </p>
                 <h3 className="mt-1 text-xl font-medium">{title}</h3>
@@ -204,7 +204,7 @@ export default function OurStorePage() {
 
       {/* Heritage */}
       <section className="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 lg:px-8 lg:py-28">
-        <p className="text-sm font-medium tracking-[0.2em] text-[#8a7f74] uppercase">The carpet city of India</p>
+        <p className="text-sm font-medium tracking-[0.2em] text-muted-foreground uppercase">The carpet city of India</p>
         <h2 className="mt-3 text-3xl font-medium tracking-tight text-balance sm:text-4xl">
           Four centuries of weaving in Bhadohi
         </h2>

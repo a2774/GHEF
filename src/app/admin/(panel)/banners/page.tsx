@@ -1,17 +1,12 @@
-import { asc } from "drizzle-orm";
-
 import { BannerManager } from "@/components/admin/banner-manager";
 import { requireAdmin } from "@/server/auth/admin-session";
-import { db, withDbRetry } from "@/server/db";
-import { banners } from "@/server/db/schema";
+import { listAdminBanners } from "@/server/services/admin";
 
 export const instant = false;
 
 export default async function AdminBannersPage() {
   await requireAdmin("admin");
-  const rows = await withDbRetry(async () =>
-    db.select().from(banners).orderBy(asc(banners.position), asc(banners.id)),
-  );
+  const rows = await listAdminBanners();
 
   return (
     <div className="max-w-3xl space-y-6 pb-12">

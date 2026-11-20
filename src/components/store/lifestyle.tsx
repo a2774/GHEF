@@ -1,5 +1,9 @@
 import Image from "next/image";
 
+import { sectionY } from "@/lib/section-spacing";
+
+import { SectionHeading } from "./section-heading";
+
 const spaces = [
   {
     photo: "/images/lifestyle-living-room.jpg",
@@ -18,9 +22,9 @@ const spaces = [
 export function Lifestyle() {
   return (
     <section id="spaces" className="scroll-mt-24">
-      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-32">
-        <h2 className="text-title font-semibold">At home in every room.</h2>
-        <div className="mt-12 grid gap-4 lg:grid-cols-3 lg:gap-6">
+      <div className={`mx-auto max-w-7xl px-4 ${sectionY} sm:px-6 lg:px-8`}>
+        <SectionHeading>At home in every room.</SectionHeading>
+        <div className="mt-6 grid gap-4 lg:grid-cols-3 lg:gap-6">
           {spaces.map(({ photo, alt, label, className }) => (
             <figure
               key={photo}

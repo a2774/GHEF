@@ -1,10 +1,14 @@
-import { and, count, desc, eq, ilike, lte, notInArray, or, sql, sum } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, lte, notInArray, or, sql, sum } from "drizzle-orm";
 
 import { cacheLife, cacheTag } from "next/cache";
 
 import { db, withDbRetry } from "@/server/db";
 import {
+  adminUsers,
+  auditLogs,
+  banners,
   categories,
+  coupons,
   enquiries,
   newsletterSubscribers,
   orderItems,
@@ -19,6 +23,7 @@ import {
 } from "@/server/db/schema";
 
 import { adminDataTag } from "./admin-cache";
+import { getStoreSettings } from "./settings";
 
 export const lowStockThreshold = 3;
 
@@ -171,10 +176,15 @@ export async function listAdminProducts() {
       .select({
         id: products.id,
         title: products.title,
+        slug: products.slug,
         status: products.status,
         isFeatured: products.isFeatured,
         isBestseller: products.isBestseller,
         category: categories.name,
+        // The cover photo, as a subquery so a product with several images never repeats a row.
+        primaryImageId: sql<string | null>`(select ${productImages.publicId} from ${productImages}
+          where ${productImages.productId} = ${products.id}
+          order by ${productImages.isPrimary} desc, ${productImages.id} limit 1)`,
         stock: sql<number>`coalesce(sum(${productVariants.stock}), 0)::int`,
         variantCount: count(productVariants.id),
       })
@@ -184,6 +194,7 @@ export async function listAdminProducts() {
       .groupBy(
         products.id,
         products.title,
+        products.slug,
         products.status,
         products.isFeatured,
         products.isBestseller,
@@ -277,4 +288,148 @@ export async function getAdminOrder(id: number) {
     if (!order) return null;
     return { order, items, returnRequest: returnRequest ?? null, payments: paymentRows };
   });
+}
+
+// ---------------------------------------------------------------------------
+// The lists on the other admin pages. Like the ones above they come from the cache, so a page opens
+// at once and can be loaded before the click. The cache is cleared (tag "admin") by every save in
+// the panel and by every customer action that changes what these pages show.
+// ---------------------------------------------------------------------------
+
+export async function listCustomers(search: string) {
+  "use cache";
+  cacheTag(adminDataTag);
+  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
+  const term = `%${search.trim().replace(/[\%_]/g, "\$&")}%`;
+  return withDbRetry(async () =>
+    db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        phone: users.phone,
+        createdAt: users.createdAt,
+        orderCount: count(orders.id),
+      })
+      .from(users)
+      .leftJoin(orders, eq(orders.userId, users.id))
+      .where(
+        search.trim() ? or(ilike(users.name, term), ilike(users.email, term), ilike(users.phone, term)) : undefined,
+      )
+      .groupBy(users.id, users.name, users.email, users.phone, users.createdAt)
+      .orderBy(desc(users.createdAt))
+      .limit(100),
+  );
+}
+
+export async function listInventory() {
+  "use cache";
+  cacheTag(adminDataTag);
+  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
+  return withDbRetry(async () =>
+    db
+      .select({
+        id: productVariants.id,
+        title: products.title,
+        size: productVariants.size,
+        color: productVariants.color,
+        sku: productVariants.sku,
+        stock: productVariants.stock,
+      })
+      .from(productVariants)
+      .innerJoin(products, eq(productVariants.productId, products.id))
+      .orderBy(asc(productVariants.stock), asc(products.title)),
+  );
+}
+
+export async function listPayments() {
+  "use cache";
+  cacheTag(adminDataTag);
+  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
+  return withDbRetry(async () =>
+    db
+      .select({
+        id: payments.id,
+        orderId: orders.id,
+        orderNumber: orders.orderNumber,
+        status: payments.status,
+        amountPaise: payments.amountPaise,
+        providerPaymentId: payments.providerPaymentId,
+        createdAt: payments.createdAt,
+      })
+      .from(payments)
+      .innerJoin(orders, eq(payments.orderId, orders.id))
+      .orderBy(desc(payments.createdAt))
+      .limit(100),
+  );
+}
+
+export async function listReturns() {
+  "use cache";
+  cacheTag(adminDataTag);
+  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
+  return withDbRetry(async () =>
+    db
+      .select({
+        id: returnRequests.id,
+        orderId: orders.id,
+        orderNumber: orders.orderNumber,
+        customer: orders.customerName,
+        reason: returnRequests.reason,
+        status: returnRequests.status,
+        createdAt: returnRequests.createdAt,
+      })
+      .from(returnRequests)
+      .innerJoin(orders, eq(returnRequests.orderId, orders.id))
+      .orderBy(desc(returnRequests.createdAt))
+      .limit(100),
+  );
+}
+
+export async function listAdminBanners() {
+  "use cache";
+  cacheTag(adminDataTag);
+  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
+  return withDbRetry(async () => db.select().from(banners).orderBy(asc(banners.position), asc(banners.id)));
+}
+
+export async function listAdminCoupons() {
+  "use cache";
+  cacheTag(adminDataTag);
+  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
+  return withDbRetry(async () => db.select().from(coupons).orderBy(desc(coupons.createdAt)));
+}
+
+export async function listTeam() {
+  "use cache";
+  cacheTag(adminDataTag);
+  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
+  return withDbRetry(async () =>
+    db
+      .select({
+        id: adminUsers.id,
+        name: adminUsers.name,
+        email: adminUsers.email,
+        role: adminUsers.role,
+        isActive: adminUsers.isActive,
+      })
+      .from(adminUsers)
+      .orderBy(asc(adminUsers.createdAt)),
+  );
+}
+
+/** The store settings as the admin settings page shows them. */
+export async function getAdminSettings() {
+  "use cache";
+  cacheTag(adminDataTag);
+  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
+  return getStoreSettings();
+}
+
+/** The latest entries of the audit trail. Every entry is written by logAdminAction, which also clears this cache. */
+export async function listAuditLogs() {
+  "use cache";
+  cacheTag(adminDataTag);
+  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
+  return withDbRetry(async () => db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(200));
 }

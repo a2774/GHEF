@@ -46,13 +46,13 @@ export function DeliveryTimeline({
       aria-labelledby="delivery-heading"
       className="rounded-xl border border-[#7a1f2b] bg-white px-4 pt-3 pb-3.5"
     >
-      <h2
+      <p
         id="delivery-heading"
-        className="flex items-center gap-1.5 border-b border-[#e6dcdc] pb-2.5 text-[0.65rem] font-medium tracking-[0.14em] text-[#7a1f2b] uppercase"
+        className="font-heading flex items-center gap-1.5 border-b border-[#e6dcdc] pb-2.5 text-[0.65rem] font-medium tracking-[0.14em] text-[#7a1f2b] uppercase"
       >
         <Clock3 className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
         Estimated delivery timeline
-      </h2>
+      </p>
 
       <ol className="mt-3.5 flex items-start">
         {steps.map(({ icon: Icon, label, value }, index) => (
@@ -60,7 +60,7 @@ export function DeliveryTimeline({
             {index > 0 && (
               <li aria-hidden="true" className="relative mt-[1.05rem] min-w-6 flex-1 px-1.5">
                 <span className="block border-t-2 border-dashed border-[#7a1f2b]" />
-                <span className="absolute inset-x-0 top-2 text-center text-[0.55rem] tracking-[0.12em] text-[#8a7f7f] uppercase">
+                <span className="absolute inset-x-0 top-2 text-center text-[0.55rem] tracking-[0.12em] text-[#6f6666] uppercase">
                   {stages[index - 1]}
                 </span>
               </li>

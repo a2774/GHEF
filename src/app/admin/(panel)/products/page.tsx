@@ -1,13 +1,17 @@
-import { Plus } from "lucide-react";
+import { ExternalLink, Image as ImageIcon, Plus } from "lucide-react";
 import Link from "next/link";
 
-import { requireAdmin } from "@/server/auth/admin-session";
+import { ProductActions } from "@/components/admin/product-actions";
+import { ProductPhoto } from "@/components/store/product-photo";
+import { hasRole, requireAdmin } from "@/server/auth/admin-session";
 import { listAdminProducts } from "@/server/services/admin";
 
 export const instant = false;
 
 export default async function AdminProductsPage() {
-  await requireAdmin();
+  const admin = await requireAdmin();
+  // Deleting a product is for admins and the owner, the same rule the server enforces.
+  const canDelete = hasRole(admin, "admin");
   const products = await listAdminProducts();
 
   return (
@@ -60,12 +64,44 @@ export default async function AdminProductsPage() {
                 return (
                   <tr key={product.id} className="transition-colors hover:bg-slate-50/60">
                     <td className="px-5 py-3.5 font-medium text-slate-900">
-                      <Link
-                        href={`/admin/products/${product.id}`}
-                        className="hover:text-slate-950 hover:underline"
-                      >
-                        {product.title}
-                      </Link>
+                      <div className="flex items-center gap-3">
+                        <div className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+                          {product.primaryImageId ? (
+                            <ProductPhoto
+                              publicId={product.primaryImageId}
+                              alt={product.title}
+                              sizes="48px"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <ImageIcon aria-hidden="true" className="size-5 text-slate-400" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <Link
+                            href={`/admin/products/${product.id}`}
+                            className="hover:text-slate-950 hover:underline"
+                          >
+                            {product.title}
+                          </Link>
+                          {isActive ? (
+                            // A plain link on purpose: the store page should not be prefetched from the admin.
+                            <a
+                              href={`/products/${product.slug}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-0.5 flex w-fit items-center gap-1 text-[11px] font-medium text-emerald-700 hover:underline"
+                            >
+                              <span>View live listing</span>
+                              <ExternalLink aria-hidden="true" className="size-3" />
+                            </a>
+                          ) : (
+                            <p className="mt-0.5 text-[11px] font-normal text-slate-400">
+                              Not on the store yet
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-5 py-3.5 text-xs text-slate-500">
                       {product.category}
@@ -110,12 +146,13 @@ export default async function AdminProductsPage() {
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-right">
-                      <Link
-                        href={`/admin/products/${product.id}`}
-                        className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-2xs hover:bg-[#0B0F19] hover:text-white hover:border-[#0B0F19] transition-all"
-                      >
-                        Edit
-                      </Link>
+                      <ProductActions
+                        id={product.id}
+                        title={product.title}
+                        slug={product.slug}
+                        status={product.status}
+                        canDelete={canDelete}
+                      />
                     </td>
                   </tr>
                 );

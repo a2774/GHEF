@@ -1,5 +1,22 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
+/** Same size as the real top bar, so nothing jumps when the session check finishes. */
+export function AdminTopBarSkeleton() {
+  return (
+    <header className="sticky top-0 z-30 flex h-14 sm:h-16 w-full items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 sm:px-6 lg:px-8 shadow-2xs">
+      <div className="flex items-center gap-2.5">
+        <Skeleton className="size-2 rounded-full" />
+        <Skeleton className="h-4 w-40 rounded" />
+      </div>
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-9 w-40 rounded-xl" />
+        <Skeleton className="hidden sm:block h-8 w-16 rounded-xl" />
+        <Skeleton className="h-6 w-14 rounded-full" />
+      </div>
+    </header>
+  );
+}
+
 export function AdminPanelSkeleton() {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">

@@ -129,7 +129,7 @@ async function Checkout() {
 
 export default function CheckoutPage() {
   return (
-    <main className="mx-auto max-w-7xl px-4 pt-36 pb-20 sm:px-6 lg:px-8 lg:pt-40">
+    <main className="mx-auto w-full max-w-7xl px-4 pt-36 pb-20 sm:px-6 lg:px-8 lg:pt-40">
       <h1 className="text-title font-semibold">Checkout.</h1>
       <div className="mt-8">
         <Suspense fallback={<div className="h-80 animate-pulse rounded-3xl bg-muted motion-reduce:animate-none" />}>

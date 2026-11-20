@@ -7,6 +7,7 @@ import { getStoreSettings, type StoreInfo } from "@/server/services/settings";
 
 import { BrandLogo } from "./brand-logo";
 import { NewsletterForm } from "./newsletter-form";
+import { SectionHeading } from "./section-heading";
 
 const footerLinks = [
   { title: "Shop", links: collectionLinks.slice(0, 4) },
@@ -45,10 +46,12 @@ export async function SiteFooter() {
     <footer className="bg-ink text-primary-foreground">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
         <div className="grid gap-12 lg:grid-cols-[1fr_2fr]">
-          <div className="max-w-md">
-            <BrandLogo className="size-24" />
-            <h2 className="mt-6 text-3xl font-semibold tracking-tight">Stay in touch.</h2>
-            <div className="mt-5">
+          <div className="mx-auto w-full max-w-md text-center">
+            <BrandLogo className="mx-auto block size-24" />
+            <SectionHeading size="small" tone="light" className="mt-6">
+              Stay in touch.
+            </SectionHeading>
+            <div className="mt-5 text-left">
               <NewsletterForm />
             </div>
             <address className="mt-8 space-y-1 text-base text-white/70 not-italic">
@@ -71,12 +74,12 @@ export async function SiteFooter() {
             {footerLinks.map(({ title, links }) => (
               <div key={title}>
                 <h3 className="text-lg font-semibold">{title}</h3>
-                <ul className="mt-3">
+                <ul className="mt-2">
                   {links.map(({ label, href }) => (
                     <li key={href}>
                       <Link
                         href={href}
-                        className="block py-1.5 text-base text-white/70 transition-colors hover:text-white"
+                        className="block py-2.5 text-base text-white/70 transition-colors hover:text-white"
                       >
                         {label}
                       </Link>

@@ -2,6 +2,8 @@
 
 import {
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Image as ImageIcon,
   Loader2,
   Plus,
@@ -11,13 +13,17 @@ import {
   Video,
 } from "lucide-react";
 import Image from "next/image";
-import { type FormEvent, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useRef, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { Input } from "@/components/ui/input";
 import { ROOMS } from "@/lib/catalog-taxonomy";
+import { compressImage } from "@/lib/compress-image";
+import { moveItem, withPrimaryFirst } from "@/lib/gallery-order";
 import { productTitleMaxLength } from "@/lib/limits";
+import { runWithLimit } from "@/lib/run-pool";
 import { toast } from "@/components/ui/sonner";
 import {
   deleteProduct,
@@ -39,10 +45,21 @@ type VariantRow = {
   stock: string;
 };
 
+type UploadingTile = { id: number; name: string; preview: string | null; isVideo: boolean };
+
+/** How many photos go up at the same time. More would only share the same connection. */
+const uploadLanes = 3;
+
 const inputClass =
   "h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-900 shadow-2xs placeholder:text-slate-400 focus:border-[#bef264] focus:outline-none focus:ring-1 focus:ring-[#bef264]";
 const selectClass =
   "h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-900 shadow-2xs focus:border-[#bef264] focus:outline-none focus:ring-1 focus:ring-[#bef264]";
+
+/**
+ * Which button saved the form: "save" keeps the status chosen in the dropdown,
+ * "publish" makes the product live on the store, "draft" keeps it hidden.
+ */
+type SaveIntent = "save" | "publish" | "draft";
 
 function toRupees(paise: number) {
   return String(paise / 100);
@@ -77,17 +94,30 @@ function Field({
   );
 }
 
-export function ProductForm({
-  categories,
-  product,
-  variants = [],
-  initialImages = [],
-}: {
+type ProductFormProps = {
   categories: { id: number; name: string }[];
   product?: typeof products.$inferSelect;
   variants?: (typeof productVariants.$inferSelect)[];
   initialImages?: (typeof productImages.$inferSelect)[];
-}) {
+};
+
+/**
+ * Next.js keeps a page you leave hidden, with everything typed in it, so the old form would
+ * come back full when "Add product" is clicked again. The key changes on every fresh visit
+ * (a link click or a push), so each visit starts from the saved data, or from an empty form
+ * for a new product. Browser back and forward still bring the half-filled form back.
+ */
+export function ProductForm(props: ProductFormProps) {
+  const { bfcacheId } = useRouter();
+  return <ProductFormFields key={bfcacheId} {...props} />;
+}
+
+function ProductFormFields({
+  categories,
+  product,
+  variants = [],
+  initialImages = [],
+}: ProductFormProps) {
   const [rows, setRows] = useState<VariantRow[]>(
     variants.length > 0
       ? variants.map((variant) => ({
@@ -105,18 +135,30 @@ export function ProductForm({
 
   // Uploaded media state (Cloudinary)
   const [uploadedMedia, setUploadedMedia] = useState<ProductImageInput[]>(() =>
-    initialImages.map((img) => ({
-      id: img.id,
-      publicId: img.publicId,
-      url: img.url,
-      isPrimary: img.isPrimary,
-    }))
+    withPrimaryFirst(
+      initialImages.map((img) => ({
+        id: img.id,
+        publicId: img.publicId,
+        url: img.url,
+      })),
+    ),
   );
-  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  // Files that are on their way to Cloudinary. They show as grey tiles with a preview.
+  const [uploading, setUploading] = useState<UploadingTile[]>([]);
+  const isUploadingMedia = uploading.length > 0;
+  const uploadSeq = useRef(0);
+  // Drag and drop of the photos: which one is being dragged and which one it is over.
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
 
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [titleLength, setTitleLength] = useState(product?.title.length ?? 0);
+  // A ref, not state: the button's click must be known by the time the form's submit event runs.
+  const intentRef = useRef<SaveIntent>(product ? "save" : "publish");
+  const [submitting, setSubmitting] = useState<SaveIntent | null>(null);
   const [pending, startTransition] = useTransition();
+  const busy = pending || isUploadingMedia;
 
   function updateRow(key: number, field: keyof VariantRow, value: string) {
     setRows((current) =>
@@ -139,21 +181,61 @@ export function ProductForm({
     ]);
   }
 
-  // Upload files directly to Cloudinary
+  // Upload files directly to Cloudinary, a few at a time, each one made smaller first.
   async function handleMediaUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
-    if (files.length === 0) return;
     event.target.value = "";
+    if (files.length === 0) return;
 
-    setIsUploadingMedia(true);
+    // Show every chosen file at once as a grey tile, so it is clear that something is happening.
+    const tiles: UploadingTile[] = files.map((file) => ({
+      id: (uploadSeq.current += 1),
+      name: file.name,
+      preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+      isVideo: file.type.startsWith("video/"),
+    }));
+    setUploading((current) => [...current, ...tiles]);
+
+    // Photos join the gallery in the order they were chosen, even though they finish in any order.
+    const results: (ProductImageInput | null | undefined)[] = files.map(() => undefined);
+    let flushed = 0;
+    let uploaded = 0;
+
+    function settle(index: number, item: ProductImageInput | null) {
+      results[index] = item;
+      const ready: ProductImageInput[] = [];
+      const finished: UploadingTile[] = [];
+      while (flushed < results.length && results[flushed] !== undefined) {
+        const result = results[flushed];
+        if (result) ready.push(result);
+        finished.push(tiles[flushed]);
+        flushed += 1;
+      }
+      if (finished.length === 0) return;
+      uploaded += ready.length;
+      if (ready.length > 0) setUploadedMedia((prev) => withPrimaryFirst([...prev, ...ready]));
+      setUploading((current) => current.filter((tile) => !finished.some(({ id }) => id === tile.id)));
+      for (const { preview } of finished) if (preview) URL.revokeObjectURL(preview);
+    }
+
+    let signed: Awaited<ReturnType<typeof getUploadSignature>>;
     try {
-      const { cloudName, apiKey, timestamp, folder, signature } = await getUploadSignature();
-      const newItems: ProductImageInput[] = [];
+      signed = await getUploadSignature();
+    } catch {
+      toast.error("Could not start the upload. Check the network and try again.");
+      files.forEach((_, index) => settle(index, null));
+      return;
+    }
+    const { cloudName, apiKey, timestamp, folder, signature } = signed;
 
-      for (const file of files) {
+    await runWithLimit(files, uploadLanes, async (original, index) => {
+      try {
+        const isVideo = original.type.startsWith("video/");
+        const file = isVideo ? original : await compressImage(original);
         if (file.size > 10 * 1024 * 1024) {
-          toast.error(`"${file.name}" exceeds 10MB maximum limit.`);
-          continue;
+          toast.error(`"${original.name}" exceeds 10MB maximum limit.`);
+          settle(index, null);
+          return;
         }
 
         const formData = new FormData();
@@ -163,59 +245,47 @@ export function ProductForm({
         formData.append("folder", folder);
         formData.append("signature", signature);
 
-        const resourceType = file.type.startsWith("video/") ? "video" : "image";
         const response = await fetch(
-          `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
-          { method: "POST", body: formData }
+          `https://api.cloudinary.com/v1_1/${cloudName}/${isVideo ? "video" : "image"}/upload`,
+          { method: "POST", body: formData },
         );
-
-        if (!response.ok) {
-          toast.error(`Upload failed for "${file.name}".`);
-          continue;
-        }
+        if (!response.ok) throw new Error("upload failed");
 
         const data = (await response.json()) as { public_id: string; secure_url: string };
-        newItems.push({
-          publicId: data.public_id,
-          url: data.secure_url,
-          isPrimary: uploadedMedia.length === 0 && newItems.length === 0,
-        });
+        settle(index, { publicId: data.public_id, url: data.secure_url });
+      } catch {
+        toast.error(`Upload failed for "${original.name}".`);
+        settle(index, null);
       }
+    });
 
-      if (newItems.length > 0) {
-        setUploadedMedia((prev) => [...prev, ...newItems]);
-        toast.success(`Successfully uploaded ${newItems.length} media file(s) to Cloudinary!`);
-      }
-    } catch {
-      toast.error("Could not upload to Cloudinary. Check network and try again.");
-    } finally {
-      setIsUploadingMedia(false);
+    if (uploaded > 0) {
+      toast.success(
+        uploaded === 1 ? "Uploaded 1 file." : `Uploaded ${uploaded} files. Drag them to change the order.`,
+      );
     }
   }
 
+  /** The star moves a photo to the front, because the first photo is the cover photo. */
   function setAsPrimary(index: number) {
-    setUploadedMedia((prev) =>
-      prev.map((item, idx) => ({
-        ...item,
-        isPrimary: idx === index,
-      }))
-    );
+    if (index === 0) return;
+    setUploadedMedia((prev) => withPrimaryFirst(moveItem(prev, index, 0)));
     toast.success("Updated primary storefront photo!");
   }
 
+  function moveMedia(from: number, to: number) {
+    setUploadedMedia((prev) => withPrimaryFirst(moveItem(prev, from, to)));
+  }
+
   function removeMedia(index: number) {
-    setUploadedMedia((prev) => {
-      const updated = prev.filter((_, idx) => idx !== index);
-      if (updated.length > 0 && !updated.some((item) => item.isPrimary)) {
-        updated[0].isPrimary = true;
-      }
-      return updated;
-    });
+    setUploadedMedia((prev) => withPrimaryFirst(prev.filter((_, idx) => idx !== index)));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const intent = intentRef.current;
     const form = new FormData(event.currentTarget);
+    const chosenStatus = form.get("status") as ProductInput["status"];
     const input: ProductInput = {
       id: product?.id,
       title: String(form.get("title")),
@@ -223,7 +293,7 @@ export function ProductForm({
       description: String(form.get("description")),
       material: String(form.get("material")),
       categoryId: Number(form.get("categoryId")),
-      status: form.get("status") as ProductInput["status"],
+      status: intent === "publish" ? "active" : intent === "draft" ? "draft" : chosenStatus,
       isFeatured: form.get("isFeatured") === "on",
       isBestseller: form.get("isBestseller") === "on",
       isReadyToDispatch: form.get("isReadyToDispatch") === "on",
@@ -242,14 +312,26 @@ export function ProductForm({
       })),
     };
 
+    setSubmitting(intent);
     startTransition(async () => {
       const message = await saveProduct(input);
       setError(message);
       if (message) {
         toast.error(message);
-      } else {
-        toast.success(product ? "Product saved successfully!" : "Product created successfully!");
+        setSubmitting(null);
+        return;
       }
+      toast.success(
+        intent === "publish"
+          ? "Published. It is live on the store."
+          : intent === "draft"
+            ? "Saved as a draft. It is not on the store yet."
+            : "Product saved successfully!",
+      );
+      // Adding or editing a product always ends on the product list, after the message has
+      // been on screen for a moment. The buttons stay disabled meanwhile, so nothing saves twice.
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      router.push("/admin/products");
     });
   }
 
@@ -260,8 +342,48 @@ export function ProductForm({
     });
   }
 
+  // A draft made with "Copy" says "Publish copy"; the name or the URL still carries the mark.
+  const isCopy =
+    product?.status === "draft" && (/\(Copy\)$/i.test(product.title) || /-copy(-\d+)?$/.test(product.slug));
+
+  const publishButtonClass =
+    "h-10 rounded-full bg-[#bef264] px-8 text-xs font-bold text-slate-950 shadow-xs hover:bg-[#a3e635] transition-all cursor-pointer";
+  const saveButtonClass =
+    "h-10 rounded-full bg-[#0B132B] px-8 text-xs font-bold text-white shadow-xs hover:bg-[#1a233a] transition-all cursor-pointer";
+  const draftButtonClass =
+    "h-10 rounded-full border-slate-300 bg-white px-6 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-all cursor-pointer";
+
+  function actionButton(
+    intent: SaveIntent,
+    label: string,
+    busyLabel: string,
+    className: string,
+    variant?: "outline",
+  ) {
+    return (
+      <Button
+        type="submit"
+        variant={variant}
+        disabled={busy}
+        onClick={() => {
+          intentRef.current = intent;
+        }}
+        className={className}
+      >
+        {pending && submitting === intent ? busyLabel : label}
+      </Button>
+    );
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <form
+      onSubmit={handleSubmit}
+      // Enter inside a text box must not save or publish by accident; use the buttons below.
+      onKeyDown={(event) => {
+        if (event.key === "Enter" && event.target instanceof HTMLInputElement) event.preventDefault();
+      }}
+      className="space-y-8"
+    >
       {/* 1. Core Specifications Section */}
       <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-2xs space-y-5">
         <div className="border-b border-slate-100 pb-3">
@@ -432,7 +554,7 @@ export function ProductForm({
               </span>
             </div>
             <p className="mt-0.5 text-xs text-slate-500">
-              Upload rug detail photos and artisan weaving videos. Star icon marks the primary storefront cover image.
+              Upload rug detail photos and artisan weaving videos. Drag a photo (or use its arrows) to change the order. The first photo is the storefront cover; the star moves a photo to the front.
             </p>
           </div>
 
@@ -460,7 +582,7 @@ export function ProductForm({
         </div>
 
         {/* Uploaded Gallery Grid */}
-        {uploadedMedia.length > 0 ? (
+        {uploadedMedia.length > 0 || uploading.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 pt-2">
             {uploadedMedia.map((media, idx) => {
               const isVideo = media.url.includes("/video/") || media.url.endsWith(".mp4");
@@ -468,7 +590,35 @@ export function ProductForm({
               return (
                 <div
                   key={media.publicId || idx}
+                  draggable={!busy}
+                  onDragStart={(event) => {
+                    setDragIndex(idx);
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", String(idx));
+                  }}
+                  onDragOver={(event) => {
+                    if (dragIndex === null) return;
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                    if (overIndex !== idx) setOverIndex(idx);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    if (dragIndex !== null) moveMedia(dragIndex, idx);
+                    setDragIndex(null);
+                    setOverIndex(null);
+                  }}
+                  onDragEnd={() => {
+                    setDragIndex(null);
+                    setOverIndex(null);
+                  }}
                   className={`group relative aspect-square rounded-xl overflow-hidden border bg-slate-100 transition-all shadow-2xs ${
+                    busy ? "" : "cursor-grab active:cursor-grabbing"
+                  } ${dragIndex === idx ? "opacity-40" : ""} ${
+                    dragIndex !== null && overIndex === idx && dragIndex !== idx
+                      ? "outline-2 outline-offset-2 outline-slate-900"
+                      : ""
+                  } ${
                     media.isPrimary
                       ? "ring-2 ring-[#bef264] border-transparent"
                       : "border-slate-200 hover:border-slate-300"
@@ -484,6 +634,7 @@ export function ProductForm({
                       alt="Rug Gallery Preview"
                       fill
                       unoptimized
+                      draggable={false}
                       className="object-cover transition-transform group-hover:scale-105"
                     />
                   )}
@@ -496,7 +647,29 @@ export function ProductForm({
                   )}
 
                   {/* Hover Controls */}
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    {idx > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => moveMedia(idx, idx - 1)}
+                        title="Move left"
+                        aria-label="Move photo left"
+                        className="absolute left-1 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md bg-white/85 text-slate-800 shadow-sm hover:bg-white transition-colors cursor-pointer"
+                      >
+                        <ChevronLeft className="size-4" />
+                      </button>
+                    )}
+                    {idx < uploadedMedia.length - 1 && (
+                      <button
+                        type="button"
+                        onClick={() => moveMedia(idx, idx + 1)}
+                        title="Move right"
+                        aria-label="Move photo right"
+                        className="absolute right-1 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md bg-white/85 text-slate-800 shadow-sm hover:bg-white transition-colors cursor-pointer"
+                      >
+                        <ChevronRight className="size-4" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setAsPrimary(idx)}
@@ -522,6 +695,36 @@ export function ProductForm({
                 </div>
               );
             })}
+
+            {/* Files still going up: a preview with a spinner, until they join the gallery */}
+            {uploading.map((tile) => (
+              <div
+                key={`uploading-${tile.id}`}
+                className="relative aspect-square overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-100"
+                aria-label={`Uploading ${tile.name}`}
+              >
+                {tile.preview ? (
+                  <Image
+                    src={tile.preview}
+                    alt=""
+                    fill
+                    unoptimized
+                    draggable={false}
+                    className="object-cover opacity-50"
+                  />
+                ) : (
+                  <div className="flex size-full items-center justify-center bg-slate-900/80">
+                    <Video className="size-8 text-[#bef264]" />
+                  </div>
+                )}
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-white/40">
+                  <Loader2 className="size-6 animate-spin text-slate-900" />
+                  <span className="max-w-[90%] truncate rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                    Uploading...
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-slate-400 bg-slate-50/50 hover:bg-slate-50 rounded-2xl p-8 text-center cursor-pointer transition-all">
@@ -718,13 +921,29 @@ export function ProductForm({
 
       {/* 4. Action Toolbar */}
       <div className="flex flex-wrap items-center gap-3 pt-2">
-        <Button
-          type="submit"
-          disabled={pending || isUploadingMedia}
-          className="h-10 rounded-full bg-[#bef264] px-8 text-xs font-bold text-slate-950 shadow-xs hover:bg-[#a3e635] transition-all cursor-pointer"
-        >
-          {pending ? "Saving..." : product ? "Save Changes" : "Create Product"}
-        </Button>
+        {/* A new product: publish it or keep it as a draft. */}
+        {!product && (
+          <>
+            {actionButton("publish", "Publish", "Publishing...", publishButtonClass)}
+            {actionButton("draft", "Save as Draft", "Saving...", draftButtonClass, "outline")}
+          </>
+        )}
+
+        {/* A product that is not live yet, such as a fresh copy: the main button publishes it. */}
+        {product && product.status === "draft" && (
+          <>
+            {actionButton("publish", isCopy ? "Publish copy" : "Publish", "Publishing...", publishButtonClass)}
+            {actionButton("draft", "Save Draft", "Saving...", draftButtonClass, "outline")}
+          </>
+        )}
+
+        {/* A product that is already live (or archived): save the changes, or publish it. */}
+        {product && product.status !== "draft" && (
+          <>
+            {actionButton("save", "Save Changes", "Saving...", saveButtonClass)}
+            {actionButton("publish", "Publish", "Publishing...", publishButtonClass)}
+          </>
+        )}
 
         {product && (
           <ConfirmDeleteDialog

@@ -364,13 +364,13 @@ export function AdminNav({
         {!isPro ? (
           /* Normal Mode: Clean Flat List of Necessary Pages Only */
           <div className="flex-1 min-h-0 flex flex-col">
-            <div className="px-4 pt-3 pb-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+            <div className="px-4 pt-4 pb-2 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
               Operations
             </div>
 
             <nav
               aria-label="Admin Normal Navigation"
-              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2.5 py-1 space-y-1 no-scrollbar"
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2.5 py-2 space-y-2 no-scrollbar"
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
               {normalNavItems
@@ -384,7 +384,7 @@ export function AdminNav({
                       key={item.href}
                       href={item.href}
                       onClick={onNavigate}
-                      className={`group flex items-center justify-between rounded-xl px-3 py-2 text-xs font-medium transition-all ${
+                      className={`group flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
                         active
                           ? "bg-[#bef264] text-slate-950 font-bold shadow-xs scale-[1.01]"
                           : "text-slate-300 hover:bg-white/10 hover:text-white"
@@ -392,7 +392,7 @@ export function AdminNav({
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <Icon
-                          className={`size-4 shrink-0 transition-colors ${
+                          className={`size-[18px] shrink-0 transition-colors ${
                             active
                               ? "text-slate-950"
                               : "text-slate-400 group-hover:text-slate-200"
@@ -413,7 +413,7 @@ export function AdminNav({
           <div className="flex-1 min-h-0 flex flex-col">
             <nav
               aria-label="Admin Navigation"
-              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2.5 py-2 space-y-4 no-scrollbar"
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2.5 py-2 space-y-5 no-scrollbar"
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
               {proNavSections.map((section) => {
@@ -424,11 +424,11 @@ export function AdminNav({
 
                 return (
                   <div key={section.title} className="space-y-1">
-                    <div className="px-3 pt-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                    <div className="px-3.5 pt-1 pb-0.5 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
                       {section.title}
                     </div>
 
-                    <div className="space-y-0.5">
+                    <div className="space-y-1.5">
                       {accessibleItems.map((item) => {
                         const active = isActive(item.href);
                         const Icon = item.icon;
@@ -438,15 +438,15 @@ export function AdminNav({
                             key={item.href}
                             href={item.href}
                             onClick={onNavigate}
-                            className={`group flex items-center justify-between rounded-xl px-3 py-2 text-xs font-medium transition-all ${
+                            className={`group flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
                               active
                                 ? "bg-[#bef264] text-slate-950 font-bold shadow-xs scale-[1.01]"
                                 : "text-slate-300 hover:bg-white/10 hover:text-white"
                             }`}
                           >
-                            <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="flex items-center gap-3 min-w-0">
                               <Icon
-                                className={`size-4 shrink-0 transition-colors ${
+                                className={`size-[18px] shrink-0 transition-colors ${
                                   active
                                     ? "text-slate-950"
                                     : "text-slate-400 group-hover:text-slate-200"

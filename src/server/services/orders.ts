@@ -21,6 +21,7 @@ import { notifyOwner } from "./notifications";
 import { canCustomerCancel, canTransition, type OrderStatus } from "./order-rules";
 import { describeDiscounts, priceCart } from "./pricing";
 import { getStoreSettings } from "./settings";
+import { mergeStockChanges, type StockChange } from "./stock-changes";
 
 export class OrderError extends Error {}
 
@@ -151,12 +152,10 @@ export async function placeOrder(
         })),
       );
 
-      for (const line of lines) {
-        await tx
-          .update(productVariants)
-          .set({ stock: sql`${productVariants.stock} - ${line.quantity}` })
-          .where(eq(productVariants.id, line.variantId));
-      }
+      await adjustStock(
+        tx,
+        lines.map((line) => ({ variantId: line.variantId, change: -line.quantity })),
+      );
 
       if (saved && couponUsed) {
         await tx
@@ -189,18 +188,32 @@ async function announceOrder(order: typeof orders.$inferSelect) {
   });
 }
 
+/**
+ * Adds a number to the stock of each variant (a negative number takes stock away) in one database
+ * statement, instead of one round trip per variant while the order is locked.
+ */
+async function adjustStock(tx: Transaction, changes: StockChange[]) {
+  const merged = mergeStockChanges(changes);
+  if (merged.length === 0) return;
+
+  const values = sql.join(
+    merged.map(({ variantId, change }) => sql`(${variantId}::int, ${change}::int)`),
+    sql`, `,
+  );
+  await tx.execute(
+    sql`update product_variants set stock = product_variants.stock + v.change from (values ${values}) as v(id, change) where product_variants.id = v.id`,
+  );
+}
+
 async function restock(tx: Transaction, orderId: number) {
   const items = await tx
     .select({ variantId: orderItems.variantId, quantity: orderItems.quantity })
     .from(orderItems)
     .where(eq(orderItems.orderId, orderId));
-  for (const { variantId, quantity } of items) {
-    if (!variantId) continue;
-    await tx
-      .update(productVariants)
-      .set({ stock: sql`${productVariants.stock} + ${quantity}` })
-      .where(eq(productVariants.id, variantId));
-  }
+  await adjustStock(
+    tx,
+    items.flatMap(({ variantId, quantity }) => (variantId ? [{ variantId, change: quantity }] : [])),
+  );
 }
 
 export async function cancelOrderById(orderId: number, userId?: string) {

@@ -2,14 +2,29 @@ import { cacheLife, cacheTag } from "next/cache";
 import { Clock, MapPin, Phone } from "lucide-react";
 import Image from "next/image";
 
+import { describeDbError } from "@/lib/db-error";
+import { sectionTop } from "@/lib/section-spacing";
 import { getStoreSettings } from "@/server/services/settings";
 
-export async function VisitUs() {
+import { SectionHeading } from "./section-heading";
+
+// Throws on failure so a database error is never cached as "no address".
+async function loadStore() {
   "use cache";
   cacheTag("storefront");
   cacheLife("hours");
+  return (await getStoreSettings()).store;
+}
 
-  const { store } = await getStoreSettings();
+export async function VisitUs() {
+  // If the database is slow or down, this section is left out instead of breaking the whole page.
+  let store: Awaited<ReturnType<typeof loadStore>>;
+  try {
+    store = await loadStore();
+  } catch (error) {
+    console.error(`Could not load the showroom details: ${describeDbError(error)}`);
+    return null;
+  }
   if (!store.address) return null;
 
   const details = [
@@ -20,7 +35,10 @@ export async function VisitUs() {
 
   return (
     <section id="visit" className="scroll-mt-32">
-      <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:gap-20 lg:px-8 lg:py-32">
+      <div className={`mx-auto max-w-7xl px-4 ${sectionTop} sm:px-6 lg:px-8`}>
+        <SectionHeading>Come and feel the pile.</SectionHeading>
+      </div>
+      <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 pt-6 pb-10 sm:px-6 lg:grid-cols-2 lg:gap-20 lg:px-8 lg:pb-16">
         <div className="relative aspect-[4/3] overflow-hidden rounded-3xl bg-muted">
           <Image
             src="/images/lifestyle-quiet-corner.jpg"
@@ -31,8 +49,7 @@ export async function VisitUs() {
           />
         </div>
         <div>
-          <h2 className="text-title font-semibold text-balance">Come and feel the pile.</h2>
-          <p className="mt-5 max-w-md text-xl leading-relaxed text-muted-foreground">
+          <p className="max-w-md text-xl leading-relaxed text-muted-foreground">
             See the colours in daylight and run your hand across the weave before you choose.
           </p>
           <dl className="mt-10">

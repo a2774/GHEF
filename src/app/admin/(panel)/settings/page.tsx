@@ -2,7 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { updateSettings } from "@/server/actions/admin-modules";
 import { requireAdmin } from "@/server/auth/admin-session";
-import { getStoreSettings, productTabMaxLength } from "@/server/services/settings";
+import { getAdminSettings } from "@/server/services/admin";
+import { productTabMaxLength } from "@/server/services/settings";
 
 import { LimitedTextArea } from "./limited-textarea";
 
@@ -47,7 +48,7 @@ function Field({
 
 export default async function AdminSettingsPage() {
   await requireAdmin("owner");
-  const settings = await getStoreSettings();
+  const settings = await getAdminSettings();
   const { offers, store } = settings;
   const [tier1, tier2] = [
     offers.bundleTiers[0] ?? { minItems: 3, percent: 0 },

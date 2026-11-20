@@ -1,33 +1,16 @@
-import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
 
 import { formatDate } from "@/components/admin/order-table";
 import { formatPaise } from "@/lib/format";
 import { requireAdmin } from "@/server/auth/admin-session";
-import { db, withDbRetry } from "@/server/db";
-import { orders, payments } from "@/server/db/schema";
+import { listPayments } from "@/server/services/admin";
 import { orderStatusLabel } from "@/server/services/order-rules";
 
 export const instant = false;
 
 export default async function AdminPaymentsPage() {
   await requireAdmin("admin");
-  const rows = await withDbRetry(async () =>
-    db
-      .select({
-        id: payments.id,
-        orderId: orders.id,
-        orderNumber: orders.orderNumber,
-        status: payments.status,
-        amountPaise: payments.amountPaise,
-        providerPaymentId: payments.providerPaymentId,
-        createdAt: payments.createdAt,
-      })
-      .from(payments)
-      .innerJoin(orders, eq(payments.orderId, orders.id))
-      .orderBy(desc(payments.createdAt))
-      .limit(100),
-  );
+  const rows = await listPayments();
 
   return (
     <div className="space-y-6 pb-12">

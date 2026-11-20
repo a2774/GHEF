@@ -8,10 +8,11 @@ import { Suspense } from "react";
 import { type PurchaseInfo, ProductExperience } from "@/components/store/product-experience";
 import { ProductFaq } from "@/components/store/product-faq";
 import { ProductRail } from "@/components/store/product-rail";
+import { ProductSkeleton } from "@/components/store/product-skeleton";
 import { ProductTabs } from "@/components/store/product-tabs";
 import { ProductReviews } from "@/components/store/product-reviews";
 import { describeDbError } from "@/lib/db-error";
-import { poppinsClass } from "@/lib/fonts";
+import { poppinsClass } from "@/lib/fonts/poppins";
 import { siteName, siteUrl } from "@/lib/site";
 import { couponOffers, getLiveCoupons } from "@/server/services/coupons";
 import { offerHeadlines } from "@/server/services/pricing";
@@ -156,7 +157,7 @@ async function Product({ params }: ProductPageProps) {
 export default function ProductPage({ params }: ProductPageProps) {
   return (
     <main className={`bg-white text-[#555] ${poppinsClass}`}>
-      <Suspense fallback={<div className="min-h-svh" />}>
+      <Suspense fallback={<ProductSkeleton />}>
         <Product params={params} />
       </Suspense>
     </main>

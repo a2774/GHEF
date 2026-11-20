@@ -1,9 +1,6 @@
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { ChevronDown } from "lucide-react";
+
+import { SectionHeading } from "./section-heading";
 
 const faqs = [
   {
@@ -38,28 +35,33 @@ const faqSchema = {
   })),
 };
 
-export function FaqSection() {
+/**
+ * The "Good to know" heading and its questions. It has no section around it, so the home page can
+ * place it beside the enquiry form in one section (see QuestionsSection).
+ */
+export function FaqBlock() {
   return (
-    <section>
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[1fr_1.4fr] lg:gap-16 lg:px-8 lg:py-32">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
-        />
-        <h2 className="text-title font-semibold text-balance">Good to know.</h2>
-        <Accordion>
-          {faqs.map(({ question, answer }) => (
-            <AccordionItem key={question} value={question}>
-              <AccordionTrigger className="py-5 font-heading text-xl font-semibold">
-                {question}
-              </AccordionTrigger>
-              <AccordionContent className="text-lg leading-relaxed text-muted-foreground">
-                {answer}
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+    <div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+      <SectionHeading>Good to know.</SectionHeading>
+      {/* Plain details/summary: it opens and closes with no script, so the home page ships no accordion library. */}
+      <div className="mt-6 flex w-full flex-col">
+        {faqs.map(({ question, answer }) => (
+          <details key={question} className="group not-last:border-b">
+            <summary className="flex cursor-pointer list-none items-start justify-between gap-4 rounded-lg py-5 text-left font-heading text-xl font-semibold outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+              {question}
+              <ChevronDown
+                aria-hidden="true"
+                className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+              />
+            </summary>
+            <p className="pb-2.5 text-lg leading-relaxed text-muted-foreground">{answer}</p>
+          </details>
+        ))}
       </div>
-    </section>
+    </div>
   );
 }

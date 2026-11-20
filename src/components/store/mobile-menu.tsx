@@ -1,63 +1,43 @@
 "use client";
 
-import { ChevronDown, Menu } from "lucide-react";
-import Link from "next/link";
-import { useState } from "react";
+import { Menu } from "lucide-react";
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
 
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import type { NavColumn, NavLink } from "@/lib/navigation";
 
-import { SiteSearch } from "./site-search";
+// Only the button is part of every page. The menu itself (and the dialog library behind it) is
+// fetched while the browser is idle just after the page opens, and shown from the first tap.
+const MobileMenuSheet = dynamic(() => import("./mobile-menu-sheet").then((module) => module.MobileMenuSheet), {
+  ssr: false,
+});
+const loadSheet = () => import("./mobile-menu-sheet");
 
 export function MobileMenu({ items, columns = [] }: { items: NavLink[]; columns?: NavColumn[] }) {
   const [open, setOpen] = useState(false);
-  const close = () => setOpen(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const idle = window.requestIdleCallback ?? ((callback: () => void) => window.setTimeout(callback, 3000));
+    idle(() => void loadSheet());
+  }, []);
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger
+    <>
+      <button
+        type="button"
         aria-label="Open menu"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => {
+          setMounted(true);
+          setOpen(true);
+        }}
         className="flex size-11 items-center justify-center rounded-full transition-colors hover:bg-white/15 lg:hidden"
       >
         <Menu className="size-5" strokeWidth={1.5} />
-      </SheetTrigger>
-      <SheetContent className="overflow-y-auto">
-        <SheetHeader className="p-6">
-          <SheetTitle className="text-2xl font-semibold tracking-tight">Menu</SheetTitle>
-        </SheetHeader>
-        <SiteSearch className="mx-6" />
-        <nav aria-label="Mobile" className="px-6 pb-10">
-          {columns
-            .filter(({ links }) => links.length > 0)
-            .map(({ title, links }) => (
-              <details key={title} className="group border-t border-border">
-                <summary className="flex cursor-pointer list-none items-center justify-between py-4 font-heading text-2xl font-semibold tracking-tight">
-                  {title}
-                  <ChevronDown className="size-5 transition-transform group-open:rotate-180" strokeWidth={1.5} />
-                </summary>
-                <ul className="pb-4">
-                  {links.map(({ label, href }) => (
-                    <li key={href}>
-                      <Link href={href} onClick={close} className="block py-2.5 text-lg text-muted-foreground">
-                        {label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            ))}
-          {items.map(({ label, href }) => (
-            <Link
-              key={label}
-              href={href}
-              onClick={close}
-              className="block border-t border-border py-4 font-heading text-2xl font-semibold tracking-tight"
-            >
-              {label}
-            </Link>
-          ))}
-        </nav>
-      </SheetContent>
-    </Sheet>
+      </button>
+      {mounted && <MobileMenuSheet open={open} onOpenChange={setOpen} items={items} columns={columns} />}
+    </>
   );
 }

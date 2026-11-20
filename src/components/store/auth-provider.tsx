@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
   createContext,
@@ -15,7 +16,10 @@ import {
 import { isSafePath } from "@/lib/safe-path";
 import { addToCart, addToWishlist, getCustomerState } from "@/server/actions/cart";
 
-import { LoginDialog } from "./login-dialog";
+// The login window (and the dialog library it needs) is not part of the first load of every page.
+// It is fetched while the browser is idle just after the page opens, so it is ready when wanted.
+const LoginDialog = dynamic(() => import("./login-dialog").then((module) => module.LoginDialog), { ssr: false });
+const loadLoginDialog = () => import("./login-dialog");
 
 export type PendingAction =
   | { type: "add-to-cart"; variantId: number; quantity: number; then?: string }
@@ -63,7 +67,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [wishlistIds, setWishlistIds] = useState<number[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [loginMounted, setLoginMounted] = useState(false);
   const loaded = useRef(false);
+
+  const showLogin = useCallback(() => {
+    setLoginMounted(true);
+    setOpen(true);
+  }, []);
+
+  useEffect(() => {
+    const idle = window.requestIdleCallback ?? ((callback: () => void) => window.setTimeout(callback, 3000));
+    idle(() => void loadLoginDialog());
+  }, []);
 
   useEffect(() => {
     if (!notice) return;
@@ -131,31 +146,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cartCount,
       wishlistIds,
       refreshCustomerState,
-      openLogin: () => setOpen(true),
+      openLogin: showLogin,
       requireLogin: async (action) => {
         if (customer) {
           await run(action);
           return;
         }
         savePending(action);
-        setOpen(true);
+        showLogin();
       },
     }),
-    [cartCount, customer, refreshCustomerState, run, wishlistIds],
+    [cartCount, customer, refreshCustomerState, run, showLogin, wishlistIds],
   );
 
   return (
     <AuthContext.Provider value={value}>
       {children}
-      <LoginDialog
-        open={open}
-        onOpenChange={setOpen}
-        onSuccess={async () => {
-          setOpen(false);
-          await refresh();
-          router.refresh();
-        }}
-      />
+      {loginMounted && (
+        <LoginDialog
+          open={open}
+          onOpenChange={setOpen}
+          onSuccess={async () => {
+            setOpen(false);
+            await refresh();
+            router.refresh();
+          }}
+        />
+      )}
       {notice && (
         <p
           role="status"

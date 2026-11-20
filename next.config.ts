@@ -10,6 +10,11 @@ const nextConfig: NextConfig = {
     staleTimes: { dynamic: 30 },
   },
   images: {
+    // AVIF is smaller than WebP where the browser supports it; WebP is the fallback.
+    formats: ["image/avif", "image/webp"],
+    // The pictures in public/images change rarely, so an optimised copy is kept for a day
+    // (the default is 4 hours). Replacing a picture shows up after that, or under a new name.
+    minimumCacheTTL: 60 * 60 * 24,
     remotePatterns: [
       {
         protocol: "https",

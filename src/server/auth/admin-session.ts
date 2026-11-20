@@ -1,19 +1,25 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 import { and, eq, gt, lt, sql } from "drizzle-orm";
-import { cacheLife } from "next/cache";
+import { cacheLife, updateTag } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
 import { db, withDbRetry } from "@/server/db";
 import { adminSessions, adminUsers, auditLogs, authAttempts } from "@/server/db/schema";
+import { adminDataTag } from "@/server/services/admin-cache";
 
 import { verifyPassword } from "./password";
+import { createSessionMemo } from "./session-memo";
 
 const cookieName = "ghe_admin_session";
 const sessionMs = 8 * 60 * 60 * 1000;
 const attemptWindowMs = 15 * 60 * 1000;
+
+// A session that was just verified is trusted for a minute in this server process, so moving
+// between admin pages does not wait on the database each time. Signing out clears it at once.
+const sessionMemo = createSessionMemo<AdminIdentity>(60_000, 200);
 
 function sha256(value: string) {
   return createHash("sha256").update(value).digest();
@@ -105,18 +111,21 @@ async function lookupAdmin(): Promise<AdminIdentity | null> {
   const token = cookieStore.get(cookieName)?.value;
   if (!token) return null;
 
+  const tokenHash = sha256(token).toString("hex");
+  const remembered = sessionMemo.get(tokenHash);
+  if (remembered) return remembered;
+
   const [session] = await withDbRetry(async () =>
     db
-      .select({ email: adminSessions.email, role: adminSessions.role })
+      .select({ email: adminSessions.email, role: adminSessions.role, expiresAt: adminSessions.expiresAt })
       .from(adminSessions)
-      .where(
-        and(
-          eq(adminSessions.tokenHash, sha256(token).toString("hex")),
-          gt(adminSessions.expiresAt, sql`now()`),
-        ),
-      ),
+      .where(and(eq(adminSessions.tokenHash, tokenHash), gt(adminSessions.expiresAt, sql`now()`))),
   );
-  return session ?? null;
+  if (!session) return null;
+
+  const admin: AdminIdentity = { email: session.email, role: session.role };
+  sessionMemo.set(tokenHash, admin, session.expiresAt.getTime());
+  return admin;
 }
 
 // The admin layout, sidebar and page all ask for the admin. cache() makes that one lookup per request.
@@ -145,15 +154,23 @@ export async function logAdminAction(
       details,
     }),
   );
+
+  // The Audit page comes from the admin cache, so a new entry has to clear it. This runs inside
+  // server actions; anywhere else the cache is simply left to expire.
+  try {
+    updateTag(adminDataTag);
+  } catch {
+    // Not in a server action.
+  }
 }
 
 export async function destroyAdminSession() {
   const cookieStore = await cookies();
   const token = cookieStore.get(cookieName)?.value;
   if (token) {
-    await withDbRetry(async () =>
-      db.delete(adminSessions).where(eq(adminSessions.tokenHash, sha256(token).toString("hex"))),
-    );
+    const tokenHash = sha256(token).toString("hex");
+    sessionMemo.delete(tokenHash);
+    await withDbRetry(async () => db.delete(adminSessions).where(eq(adminSessions.tokenHash, tokenHash)));
   }
   cookieStore.delete(cookieName);
 }

@@ -208,7 +208,7 @@ export function ProductExperience({ product, purchase }: { product: ProductDetai
                 type="button"
                 aria-pressed={color === option}
                 onClick={() => selectColor(option)}
-                className="flex h-9 items-center gap-2 rounded-[3px] border border-[#ddd] bg-white px-3 text-[0.95rem] text-[#555] capitalize transition-colors hover:border-[#111] aria-pressed:border-[#111] aria-pressed:bg-[#f5f5f5] aria-pressed:text-[#111]"
+                className="relative flex h-9 items-center gap-2 rounded-[3px] after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-[''] border border-[#ddd] bg-white px-3 text-[0.95rem] text-[#555] capitalize transition-colors hover:border-[#111] aria-pressed:border-[#111] aria-pressed:bg-[#f5f5f5] aria-pressed:text-[#111]"
               >
                 <span
                   aria-hidden="true"
@@ -236,7 +236,7 @@ export function ProductExperience({ product, purchase }: { product: ProductDetai
                   setSize(option);
                   setQuantity(1);
                 }}
-                className="h-9 min-w-14 rounded-[3px] border border-[#ddd] bg-white px-4 text-[0.95rem] text-[#555] transition-colors hover:border-[#111] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[#ddd] aria-pressed:border-[#111] aria-pressed:bg-[#f5f5f5] aria-pressed:text-[#111]"
+                className="relative h-9 min-w-14 rounded-[3px] after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-[''] border border-[#ddd] bg-white px-4 text-[0.95rem] text-[#555] transition-colors hover:border-[#111] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[#ddd] aria-pressed:border-[#111] aria-pressed:bg-[#f5f5f5] aria-pressed:text-[#111]"
               >
                 {option}
               </button>
@@ -253,7 +253,7 @@ export function ProductExperience({ product, purchase }: { product: ProductDetai
               aria-label="Decrease quantity"
               disabled={soldOut || quantity <= 1}
               onClick={() => setQuantity(quantity - 1)}
-              className="flex h-full w-10 items-center justify-center rounded-l-[6px] transition-colors hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent"
+              className="flex h-full w-11 items-center justify-center rounded-l-[6px] transition-colors hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent"
             >
               <Minus className="size-4" />
             </button>
@@ -265,7 +265,7 @@ export function ProductExperience({ product, purchase }: { product: ProductDetai
               aria-label="Increase quantity"
               disabled={soldOut || quantity >= Math.min(variant?.stock ?? 1, 50)}
               onClick={() => setQuantity(quantity + 1)}
-              className="flex h-full w-10 items-center justify-center rounded-r-[6px] transition-colors hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent"
+              className="flex h-full w-11 items-center justify-center rounded-r-[6px] transition-colors hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent"
             >
               <Plus className="size-4" />
             </button>

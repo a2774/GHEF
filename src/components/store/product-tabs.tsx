@@ -150,7 +150,7 @@ export function ProductTabs({
             <div className="mt-10">
               <AdminText text={product.description} />
             </div>
-            <p className="mt-3 text-[0.95rem] text-[#777]">
+            <p className="mt-3 text-[0.95rem] text-[#666]">
               Handmade pieces vary a little in shade and size. That is the mark of the hand, not a flaw.
             </p>
             <h3 className="mt-8 text-xl font-semibold tracking-tight text-[#111]">Care</h3>

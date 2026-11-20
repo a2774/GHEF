@@ -1,18 +1,31 @@
 import { cacheLife, cacheTag } from "next/cache";
 
+import { describeDbError } from "@/lib/db-error";
 import { offerHeadlines } from "@/server/services/pricing";
 import { getStoreSettings } from "@/server/services/settings";
 
-export async function OfferTicker() {
+// Throws on failure so a database error is never cached as "no offers".
+async function loadItems() {
   "use cache";
   cacheTag("storefront");
   cacheLife("hours");
 
   const { announcement, offers } = await getStoreSettings();
-  const items = [
+  return [
     ...(announcement ? [announcement] : []),
     ...offerHeadlines(offers).map(({ title }) => title),
   ];
+}
+
+export async function OfferTicker() {
+  // If the database is slow or down, the strip is left out instead of breaking the whole page.
+  let items: string[] = [];
+  try {
+    items = await loadItems();
+  } catch (error) {
+    console.error(`Could not load the offer ticker: ${describeDbError(error)}`);
+    return null;
+  }
   if (items.length === 0) return null;
 
   // Repeat the list so one copy is always on screen while the other slides in.
