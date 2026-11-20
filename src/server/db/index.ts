@@ -3,6 +3,8 @@ import type { SocketConnectOpts } from "node:net";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Client, Pool, type ClientConfig } from "pg";
 
+import { describeDbError } from "@/lib/db-error";
+
 import * as schema from "./schema";
 
 if (!process.env.DATABASE_URL) {
@@ -93,13 +95,18 @@ function isTransient(error: unknown): boolean {
   );
 }
 
-export async function withDbRetry<T>(run: () => Promise<T>, attempts = 3): Promise<T> {
+// Four tries with growing waits (0.5 s, 2 s, 4.5 s). A sleeping Neon database or a dropped network
+// link from India can take a few seconds to recover, and three tries within one second were not enough.
+export async function withDbRetry<T>(run: () => Promise<T>, attempts = 4): Promise<T> {
   for (let attempt = 1; ; attempt += 1) {
     try {
       return await run();
     } catch (error) {
-      if (attempt >= attempts || !isTransient(error)) throw error;
-      await new Promise((resolve) => setTimeout(resolve, attempt * 300));
+      const retry = attempt < attempts && isTransient(error);
+      // Drizzle's own message only says "Failed query"; this prints the real reason in the server log.
+      console.warn(`Database query failed (try ${attempt} of ${attempts}${retry ? ", retrying" : ""}): ${describeDbError(error)}`);
+      if (!retry) throw error;
+      await new Promise((resolve) => setTimeout(resolve, attempt * attempt * 500));
     }
   }
 }
