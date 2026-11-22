@@ -95,9 +95,12 @@ function isTransient(error: unknown): boolean {
   );
 }
 
-// Four tries with growing waits (0.5 s, 2 s, 4.5 s). A sleeping Neon database or a dropped network
-// link from India can take a few seconds to recover, and three tries within one second were not enough.
-export async function withDbRetry<T>(run: () => Promise<T>, attempts = 4): Promise<T> {
+// Five tries with growing waits (0.5 s, 1.5 s, 3.5 s, 6 s: about 11 s in all). A Neon database that went
+// to sleep, or a network link from India that dropped its idle connections ("read ECONNRESET"), can take
+// several seconds to come back, and four tries within 7 seconds were not always enough.
+const retryWaitsMs = [500, 1_500, 3_500, 6_000];
+
+export async function withDbRetry<T>(run: () => Promise<T>, attempts = retryWaitsMs.length + 1): Promise<T> {
   for (let attempt = 1; ; attempt += 1) {
     try {
       return await run();
@@ -106,7 +109,7 @@ export async function withDbRetry<T>(run: () => Promise<T>, attempts = 4): Promi
       // Drizzle's own message only says "Failed query"; this prints the real reason in the server log.
       console.warn(`Database query failed (try ${attempt} of ${attempts}${retry ? ", retrying" : ""}): ${describeDbError(error)}`);
       if (!retry) throw error;
-      await new Promise((resolve) => setTimeout(resolve, attempt * attempt * 500));
+      await new Promise((resolve) => setTimeout(resolve, retryWaitsMs[Math.min(attempt, retryWaitsMs.length) - 1]));
     }
   }
 }
