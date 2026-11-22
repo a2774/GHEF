@@ -1,17 +1,12 @@
-import { desc } from "drizzle-orm";
-
 import { CouponManager } from "@/components/admin/coupon-manager";
 import { requireAdmin } from "@/server/auth/admin-session";
-import { db, withDbRetry } from "@/server/db";
-import { coupons } from "@/server/db/schema";
+import { listAdminCoupons } from "@/server/services/admin";
 
 export const instant = false;
 
 export default async function AdminCouponsPage() {
   await requireAdmin("admin");
-  const rows = await withDbRetry(async () =>
-    db.select().from(coupons).orderBy(desc(coupons.createdAt)),
-  );
+  const rows = await listAdminCoupons();
 
   return (
     <div className="max-w-4xl space-y-6 pb-12">

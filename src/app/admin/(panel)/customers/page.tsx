@@ -1,11 +1,8 @@
-import { count, desc, eq, ilike, or } from "drizzle-orm";
-
 import { formatDate } from "@/components/admin/order-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { requireAdmin } from "@/server/auth/admin-session";
-import { db, withDbRetry } from "@/server/db";
-import { orders, users } from "@/server/db/schema";
+import { listCustomers } from "@/server/services/admin";
 
 export const instant = false;
 
@@ -16,29 +13,7 @@ export default async function AdminCustomersPage({
 }) {
   await requireAdmin("admin");
   const { q = "" } = await searchParams;
-  const term = `%${q.trim().replace(/[\\%_]/g, "\\$&")}%`;
-
-  const rows = await withDbRetry(async () =>
-    db
-      .select({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        phone: users.phone,
-        createdAt: users.createdAt,
-        orderCount: count(orders.id),
-      })
-      .from(users)
-      .leftJoin(orders, eq(orders.userId, users.id))
-      .where(
-        q.trim()
-          ? or(ilike(users.name, term), ilike(users.email, term), ilike(users.phone, term))
-          : undefined,
-      )
-      .groupBy(users.id, users.name, users.email, users.phone, users.createdAt)
-      .orderBy(desc(users.createdAt))
-      .limit(100),
-  );
+  const rows = await listCustomers(q);
 
   return (
     <div className="space-y-6 pb-12">

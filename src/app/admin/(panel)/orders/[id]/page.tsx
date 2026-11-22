@@ -1,6 +1,12 @@
 import { notFound } from "next/navigation";
 
-import { formatDate } from "@/components/admin/order-table";
+import { BackButton } from "@/components/admin/back-button";
+import { DownloadLabelButton } from "@/components/admin/download-label-button";
+import { OrderStatusBadge, PaymentMethodBadge, PaymentStatusBadge, paymentStatusLabel } from "@/components/admin/order-badges";
+import { formatDateTime } from "@/components/admin/order-table";
+import { PrintableLabel } from "@/components/admin/printable-label";
+import { PrintLabelButton } from "@/components/admin/print-label-button";
+import { ShippingLabel } from "@/components/admin/shipping-label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatPaise } from "@/lib/format";
@@ -9,6 +15,7 @@ import { requireAdmin } from "@/server/auth/admin-session";
 import { paymentStatus } from "@/server/db/schema";
 import { getAdminOrder } from "@/server/services/admin";
 import { canTransition, nextStatuses, orderStatusLabel } from "@/server/services/order-rules";
+import { getLabelSender } from "@/server/services/store-sender";
 
 export const instant = false;
 
@@ -19,7 +26,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   const numericId = Number(id);
   if (!Number.isInteger(numericId) || numericId <= 0) notFound();
-  const result = await getAdminOrder(numericId);
+  const [result, { sender, complete }] = await Promise.all([getAdminOrder(numericId), getLabelSender()]);
   if (!result) notFound();
   const { order, items, returnRequest, payments } = result;
   const statusOptions = [
@@ -29,14 +36,43 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="max-w-4xl space-y-6 pb-12">
-      <div>
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-950 font-mono">
-          {order.orderNumber}
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Placed on {formatDate(order.createdAt)} • Payment Method: {order.paymentMethod.toUpperCase()}
-        </p>
+      <BackButton fallbackHref="/admin/orders">Back to orders</BackButton>
+
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-950 font-mono">
+            {order.orderNumber}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">Placed on {formatDateTime(order.createdAt)}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <OrderStatusBadge status={order.status} />
+            <PaymentMethodBadge method={order.paymentMethod} />
+            <PaymentStatusBadge status={order.paymentStatus} />
+          </div>
+        </div>
+
+        {/* Download saves the label as a PDF file straight away; Print opens the print window. Neither opens a new tab. */}
+        <div className="flex flex-wrap items-start gap-2">
+          <DownloadLabelButton
+            sourceId="shipping-label-source"
+            fileName={`Shipping-label-${order.orderNumber}`}
+            printHref={`/admin/orders/${order.id}/label`}
+          />
+          <PrintLabelButton fileName={`Shipping-label-${order.orderNumber}`} />
+        </div>
       </div>
+
+      {!complete && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+          The store address could not be loaded just now, so a label downloaded now would show only the brand
+          name in the From block. Reload this page first to include the address.
+        </p>
+      )}
+
+      {/* A hidden copy of the label: Download turns it into the PDF, Print prints it. */}
+      <PrintableLabel>
+        <ShippingLabel order={order} items={items} sender={sender} />
+      </PrintableLabel>
 
       <div className="grid gap-4 md:grid-cols-2">
         {/* Customer Card */}
@@ -70,6 +106,25 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
               </li>
             ))}
           </ul>
+          <div className="mt-3 space-y-1 border-t border-slate-200 pt-3 text-xs text-slate-600">
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>{formatPaise(order.subtotalPaise)}</span>
+            </div>
+            {order.discountPaise > 0 && (
+              <>
+                <div className="flex justify-between">
+                  <span>Discounts</span>
+                  <span>-{formatPaise(order.discountPaise)}</span>
+                </div>
+                {order.discountNote && <p className="text-slate-400">{order.discountNote}</p>}
+              </>
+            )}
+            <div className="flex justify-between">
+              <span>Shipping</span>
+              <span>{order.shippingPaise === 0 ? "Free" : formatPaise(order.shippingPaise)}</span>
+            </div>
+          </div>
           <div className="mt-3 flex justify-between border-t border-slate-200 pt-3 text-sm font-bold text-slate-950">
             <span>Total Amount</span>
             <span>{formatPaise(order.totalPaise)}</span>
@@ -97,6 +152,11 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
               </option>
             ))}
           </select>
+          {order.status === "confirmed" && (
+            <span className="mt-1 block text-xs font-normal text-slate-500">
+              Confirmed by mistake? Choose Pending and save to undo it.
+            </span>
+          )}
         </label>
 
         <label className="block text-xs font-semibold text-slate-700">
@@ -104,7 +164,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
           <select name="paymentStatus" defaultValue={order.paymentStatus} className={`mt-1.5 ${fieldClass}`}>
             {paymentStatus.enumValues.map((value) => (
               <option key={value} value={value}>
-                {value}
+                {paymentStatusLabel(value)}
               </option>
             ))}
           </select>
@@ -118,6 +178,9 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
         <label className="block text-xs font-semibold text-slate-700">
           Tracking number
           <Input name="trackingNumber" defaultValue={order.trackingNumber ?? ""} placeholder="e.g. BLU123456789" className="mt-1.5 h-9 rounded-xl border-slate-200 bg-white px-3 text-xs font-mono shadow-2xs" />
+          <span className="mt-1 block text-xs font-normal text-slate-500">
+            Saving a tracking number marks a Confirmed, Processing or Packed order as Shipped.
+          </span>
         </label>
 
         <label className="block text-xs font-semibold text-slate-700 md:col-span-2">

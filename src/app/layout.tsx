@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const inter = Inter({
-  variable: "--font-sans",
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
@@ -15,14 +15,17 @@ const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
 });
 
+// Used for the brand logo and for code-like text only, so they are not preloaded on every page.
 const playfair = Playfair_Display({
   variable: "--font-logo",
   subsets: ["latin"],
+  preload: false,
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 const description =

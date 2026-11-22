@@ -1,32 +1,15 @@
-import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
 
 import { formatDate } from "@/components/admin/order-table";
 import { requireAdmin } from "@/server/auth/admin-session";
-import { db, withDbRetry } from "@/server/db";
-import { orders, returnRequests } from "@/server/db/schema";
+import { listReturns } from "@/server/services/admin";
 import { orderStatusLabel } from "@/server/services/order-rules";
 
 export const instant = false;
 
 export default async function AdminReturnsPage() {
   await requireAdmin();
-  const rows = await withDbRetry(async () =>
-    db
-      .select({
-        id: returnRequests.id,
-        orderId: orders.id,
-        orderNumber: orders.orderNumber,
-        customer: orders.customerName,
-        reason: returnRequests.reason,
-        status: returnRequests.status,
-        createdAt: returnRequests.createdAt,
-      })
-      .from(returnRequests)
-      .innerJoin(orders, eq(returnRequests.orderId, orders.id))
-      .orderBy(desc(returnRequests.createdAt))
-      .limit(100),
-  );
+  const rows = await listReturns();
 
   return (
     <div className="space-y-6 pb-12">

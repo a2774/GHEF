@@ -1,28 +1,14 @@
-import { asc } from "drizzle-orm";
-
 import { TeamForm } from "@/components/admin/team-form";
 import { Button } from "@/components/ui/button";
 import { toggleTeamMember } from "@/server/actions/admin-modules";
 import { requireAdmin } from "@/server/auth/admin-session";
-import { db, withDbRetry } from "@/server/db";
-import { adminUsers } from "@/server/db/schema";
+import { listTeam } from "@/server/services/admin";
 
 export const instant = false;
 
 export default async function AdminTeamPage() {
   await requireAdmin("owner");
-  const rows = await withDbRetry(async () =>
-    db
-      .select({
-        id: adminUsers.id,
-        name: adminUsers.name,
-        email: adminUsers.email,
-        role: adminUsers.role,
-        isActive: adminUsers.isActive,
-      })
-      .from(adminUsers)
-      .orderBy(asc(adminUsers.createdAt)),
-  );
+  const rows = await listTeam();
 
   return (
     <div className="max-w-3xl space-y-6 pb-12">

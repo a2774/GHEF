@@ -20,23 +20,38 @@ const STATUS_OPTIONS = [
   { label: "Refunded", value: "refunded" },
 ];
 
+const RANGES = [
+  { key: "all", label: "All Orders" },
+  { key: "24h", label: "24 hrs" },
+  { key: "7d", label: "7 days" },
+  { key: "30d", label: "30 days" },
+  { key: "90d", label: "90 days" },
+  { key: "365d", label: "365 days" },
+];
+
 export function OrderFilters({
   initialQuery = "",
   initialStatus = "",
+  initialRange = "all",
+  initialFrom = "",
+  initialTo = "",
 }: {
   initialQuery?: string;
   initialStatus?: string;
+  initialRange?: string;
+  initialFrom?: string;
+  initialTo?: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [q, setQ] = React.useState(initialQuery);
   const [status, setStatus] = React.useState(initialStatus);
-  const [dateRange, setDateRange] = React.useState("all");
+  const [dateRange, setDateRange] = React.useState(initialRange);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = React.useState("Just now");
-  const [showCustomDate, setShowCustomDate] = React.useState(false);
-  const [startDate, setStartDate] = React.useState("");
-  const [endDate, setEndDate] = React.useState("");
+  const [showCustomDate, setShowCustomDate] = React.useState(initialRange === "custom");
+  const [startDate, setStartDate] = React.useState(initialFrom);
+  const [endDate, setEndDate] = React.useState(initialTo);
 
   const handleRefresh = () => {
     if (isRefreshing) return;
@@ -54,31 +69,40 @@ export function OrderFilters({
     }, 600);
   };
 
-  const applyFilters = (newQ: string, newStatus: string) => {
+  /** The address is the source of truth: every filter writes into it, and the page loads the matching orders. */
+  const go = (changes: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams?.toString() || "");
-    if (newQ.trim()) {
-      params.set("q", newQ.trim());
-    } else {
-      params.delete("q");
+    for (const [key, value] of Object.entries(changes)) {
+      if (value) params.set(key, value);
+      else params.delete(key);
     }
-
-    if (newStatus) {
-      params.set("status", newStatus);
-    } else {
-      params.delete("status");
-    }
-
-    router.push(`/admin/orders?${params.toString()}`);
+    const query = params.toString();
+    router.push(query ? `/admin/orders?${query}` : "/admin/orders");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    applyFilters(q, status);
+    go({ q: q.trim() || null, status: status || null });
   };
 
   const handleStatusChange = (val: string) => {
     setStatus(val);
-    applyFilters(q, val);
+    go({ status: val || null });
+  };
+
+  const handleRangeChange = (key: string) => {
+    setDateRange(key);
+    setShowCustomDate(false);
+    setStartDate("");
+    setEndDate("");
+    go({ range: key === "all" ? null : key, from: null, to: null });
+  };
+
+  const handleCustomApply = () => {
+    if (!startDate && !endDate) return;
+    setDateRange("custom");
+    setShowCustomDate(false);
+    go({ range: "custom", from: startDate || null, to: endDate || null });
   };
 
   const handleClear = () => {
@@ -86,6 +110,8 @@ export function OrderFilters({
     setStatus("");
     setDateRange("all");
     setShowCustomDate(false);
+    setStartDate("");
+    setEndDate("");
     router.push("/admin/orders");
   };
 
@@ -97,21 +123,12 @@ export function OrderFilters({
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
         {/* Date Range Selector Pill */}
         <div className="inline-flex flex-wrap items-center rounded-full bg-slate-200/70 p-1 shadow-inner">
-          {[
-            { key: "all", label: "All Orders" },
-            { key: "24h", label: "24 hrs" },
-            { key: "7d", label: "7 days" },
-            { key: "30d", label: "30 days" },
-            { key: "90d", label: "90 days" },
-            { key: "365d", label: "365 days" },
-          ].map(({ key, label }) => (
+          {RANGES.map(({ key, label }) => (
             <button
               key={key}
               type="button"
-              onClick={() => {
-                setDateRange(key);
-                setShowCustomDate(false);
-              }}
+              aria-pressed={dateRange === key}
+              onClick={() => handleRangeChange(key)}
               className={`rounded-full px-3 py-1 text-xs font-semibold transition-all cursor-pointer ${
                 dateRange === key
                   ? "bg-[#0B132B] text-white shadow-xs"
@@ -124,6 +141,7 @@ export function OrderFilters({
 
           <button
             type="button"
+            aria-pressed={dateRange === "custom"}
             onClick={() => setShowCustomDate(!showCustomDate)}
             className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition-all cursor-pointer ${
               dateRange === "custom" || showCustomDate
@@ -162,24 +180,26 @@ export function OrderFilters({
             <span className="text-xs font-semibold text-slate-700">Filter Placed Between:</span>
             <input
               type="date"
+              aria-label="From date"
               value={startDate}
+              max={endDate || undefined}
               onChange={(e) => setStartDate(e.target.value)}
               className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-mono text-slate-800"
             />
             <span className="text-xs text-slate-400">to</span>
             <input
               type="date"
+              aria-label="To date"
               value={endDate}
+              min={startDate || undefined}
               onChange={(e) => setEndDate(e.target.value)}
               className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-mono text-slate-800"
             />
             <button
               type="button"
-              onClick={() => {
-                setDateRange("custom");
-                setShowCustomDate(false);
-              }}
-              className="rounded-full bg-[#0B132B] px-3.5 py-1 text-xs font-semibold text-white cursor-pointer"
+              onClick={handleCustomApply}
+              disabled={!startDate && !endDate}
+              className="rounded-full bg-[#0B132B] px-3.5 py-1 text-xs font-semibold text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
             >
               Apply
             </button>
@@ -201,9 +221,10 @@ export function OrderFilters({
           {q && (
             <button
               type="button"
+              aria-label="Clear search"
               onClick={() => {
                 setQ("");
-                applyFilters("", status);
+                go({ q: null });
               }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
             >
@@ -265,8 +286,9 @@ export function OrderFilters({
             <button
               key={chip.val}
               type="button"
+              aria-pressed={isActive}
               onClick={() => handleStatusChange(chip.val)}
-              className={`rounded-full px-3 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-all cursor-pointer ${
                 isActive
                   ? "bg-[#0B132B] text-white shadow-xs"
                   : "bg-white border border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900"

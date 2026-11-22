@@ -19,8 +19,9 @@ import {
 
 import { notifyOwner } from "./notifications";
 import { canCustomerCancel, canTransition, type OrderStatus } from "./order-rules";
-import { calculateTotals, evaluateCoupon } from "./pricing";
+import { describeDiscounts, priceCart } from "./pricing";
 import { getStoreSettings } from "./settings";
+import { mergeStockChanges, type StockChange } from "./stock-changes";
 
 export class OrderError extends Error {}
 
@@ -51,7 +52,7 @@ export async function placeOrder(
   userId: string,
   input: { addressId: number; method: PaymentMethod; idempotencyKey: string },
 ) {
-  const { codEnabled, shippingPaise } = await getStoreSettings();
+  const { codEnabled, shippingPaise, offers } = await getStoreSettings();
   if (input.method === "cod" && !codEnabled) {
     throw new OrderError("Cash on delivery is not available.");
   }
@@ -101,7 +102,6 @@ export async function placeOrder(
         }
       }
 
-      const { subtotalPaise } = calculateTotals(lines);
       const [saved] = await tx
         .select({ coupon: coupons })
         .from(carts)
@@ -109,14 +109,16 @@ export async function placeOrder(
         .where(eq(carts.userId, userId))
         .for("update", { of: coupons });
 
-      let discountPaise = 0;
-      if (saved) {
-        const evaluation = evaluateCoupon(saved.coupon, subtotalPaise);
-        if (!evaluation.ok) throw new OrderError(evaluation.error);
-        discountPaise = evaluation.discountPaise;
-      }
+      const totals = priceCart({
+        lines,
+        offers,
+        coupon: saved?.coupon,
+        couponCode: saved?.coupon.code,
+        prepaid: input.method === "razorpay",
+      });
+      if (saved && totals.couponError) throw new OrderError(totals.couponError);
+      const couponUsed = totals.discounts.some(({ kind }) => kind === "coupon");
 
-      const totals = calculateTotals(lines, discountPaise);
       const [order] = await tx
         .insert(orders)
         .values({
@@ -127,10 +129,13 @@ export async function placeOrder(
           customerEmail: user.email,
           customerPhone: address.phone,
           shippingAddress: formatAddress(address),
-          status: input.method === "cod" ? "confirmed" : "pending",
+          // Every new order starts as Pending. The owner confirms a cash on delivery order by hand; an
+          // online order confirms itself when its payment arrives (markPaymentPaid).
+          status: "pending",
           paymentMethod: input.method === "cod" ? "Cash on delivery" : "Razorpay",
           subtotalPaise: totals.subtotalPaise,
           discountPaise: totals.discountPaise,
+          discountNote: totals.discounts.length > 0 ? describeDiscounts(totals.discounts) : null,
           shippingPaise,
           totalPaise: totals.totalPaise + shippingPaise,
         })
@@ -149,14 +154,12 @@ export async function placeOrder(
         })),
       );
 
-      for (const line of lines) {
-        await tx
-          .update(productVariants)
-          .set({ stock: sql`${productVariants.stock} - ${line.quantity}` })
-          .where(eq(productVariants.id, line.variantId));
-      }
+      await adjustStock(
+        tx,
+        lines.map((line) => ({ variantId: line.variantId, change: -line.quantity })),
+      );
 
-      if (saved) {
+      if (saved && couponUsed) {
         await tx
           .update(coupons)
           .set({ usedCount: sql`${coupons.usedCount} + 1` })
@@ -182,9 +185,26 @@ async function clearCart(tx: Transaction, userId: string) {
 async function announceOrder(order: typeof orders.$inferSelect) {
   await notifyOwner({
     subject: `New order ${order.orderNumber}`,
-    text: `${order.customerName} placed order ${order.orderNumber} by ${order.paymentMethod}.`,
+    text: `${order.customerName} placed order ${order.orderNumber} by ${order.paymentMethod}. Open Orders in the admin panel and confirm it.`,
     replyTo: order.customerEmail,
   });
+}
+
+/**
+ * Adds a number to the stock of each variant (a negative number takes stock away) in one database
+ * statement, instead of one round trip per variant while the order is locked.
+ */
+async function adjustStock(tx: Transaction, changes: StockChange[]) {
+  const merged = mergeStockChanges(changes);
+  if (merged.length === 0) return;
+
+  const values = sql.join(
+    merged.map(({ variantId, change }) => sql`(${variantId}::int, ${change}::int)`),
+    sql`, `,
+  );
+  await tx.execute(
+    sql`update product_variants set stock = product_variants.stock + v.change from (values ${values}) as v(id, change) where product_variants.id = v.id`,
+  );
 }
 
 async function restock(tx: Transaction, orderId: number) {
@@ -192,13 +212,10 @@ async function restock(tx: Transaction, orderId: number) {
     .select({ variantId: orderItems.variantId, quantity: orderItems.quantity })
     .from(orderItems)
     .where(eq(orderItems.orderId, orderId));
-  for (const { variantId, quantity } of items) {
-    if (!variantId) continue;
-    await tx
-      .update(productVariants)
-      .set({ stock: sql`${productVariants.stock} + ${quantity}` })
-      .where(eq(productVariants.id, variantId));
-  }
+  await adjustStock(
+    tx,
+    items.flatMap(({ variantId, quantity }) => (variantId ? [{ variantId, change: quantity }] : [])),
+  );
 }
 
 export async function cancelOrderById(orderId: number, userId?: string) {
@@ -254,10 +271,33 @@ export async function markPaymentPaid(providerOrderId: string, providerPaymentId
         .where(and(eq(orders.id, payment.orderId), eq(orders.status, "pending")))
         .returning();
       if (updated?.userId) await clearCart(tx, updated.userId);
-      return updated ?? null;
+      if (updated) return { order: updated, late: false };
+
+      // The customer closed the payment window, so the order was cancelled and
+      // restocked, but the bank captured the money later (common with UPI).
+      // Keep the money visible and ask the owner to refund or re-confirm.
+      const [late] = await tx
+        .update(orders)
+        .set({
+          paymentStatus: "paid",
+          notes: sql`concat_ws(E'\n', ${orders.notes}, 'Payment captured after the order was cancelled. Refund it or re-confirm the order.')`,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(orders.id, payment.orderId), eq(orders.status, "cancelled")))
+        .returning();
+      return late ? { order: late, late: true } : null;
     }),
   );
-  if (order) await announceOrder(order);
+  if (!order) return;
+  if (!order.late) {
+    await announceOrder(order.order);
+    return;
+  }
+  await notifyOwner({
+    subject: `Action needed: payment on cancelled order ${order.order.orderNumber}`,
+    text: `Razorpay captured a payment for ${order.order.orderNumber} after it was cancelled. Refund it from Razorpay or re-confirm the order if stock allows.`,
+    replyTo: order.order.customerEmail,
+  });
 }
 
 // Safe to call twice: stock is returned only on the first failure.

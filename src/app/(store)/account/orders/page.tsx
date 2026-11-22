@@ -6,7 +6,7 @@ import { AccountNav } from "@/components/store/account-nav";
 import { LoginPrompt } from "@/components/store/login-prompt";
 import { formatPaise } from "@/lib/format";
 import { getCustomerSession } from "@/server/auth/customer-session";
-import { orderStatusLabel } from "@/server/services/order-rules";
+import { customerStatusLabel } from "@/server/services/order-rules";
 import { listCustomerOrders } from "@/server/services/orders";
 
 export const metadata: Metadata = {
@@ -39,7 +39,7 @@ async function Orders() {
             className="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-muted p-5 text-lg transition-colors hover:bg-secondary"
           >
             <span className="font-semibold">{order.orderNumber}</span>
-            <span>{orderStatusLabel(order.status)}</span>
+            <span>{customerStatusLabel(order.status, order.paymentMethod)}</span>
             <span>{formatPaise(order.totalPaise)}</span>
           </Link>
         </li>
@@ -50,7 +50,7 @@ async function Orders() {
 
 export default function OrdersPage() {
   return (
-    <main className="mx-auto max-w-7xl px-4 pt-28 pb-20 sm:px-6 lg:px-8 lg:pt-32">
+    <main className="mx-auto w-full max-w-7xl px-4 pt-36 pb-20 sm:px-6 lg:px-8 lg:pt-40">
       <h1 className="text-title font-semibold">Your orders.</h1>
       <div className="mt-6">
         <AccountNav />

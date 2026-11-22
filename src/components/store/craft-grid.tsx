@@ -1,39 +1,53 @@
-import Link from "next/link";
+import { cacheLife, cacheTag } from "next/cache";
 
-import { RugIllustration, type RugPalette } from "./rug-illustration";
+import { type ComingSoonCollection, pendingCollections } from "@/lib/coming-soon";
+import { describeDbError } from "@/lib/db-error";
+import { listCollectionCovers } from "@/server/services/catalog";
 
-const crafts: { name: string; slug: string; palette: RugPalette; medallion: boolean }[] = [
-  { name: "Hand Knotted", slug: "hand-knotted", palette: "Ivory", medallion: true },
-  { name: "Hand Tufted", slug: "hand-tufted", palette: "Sand", medallion: false },
-  { name: "Jute", slug: "jute", palette: "Beige", medallion: false },
-  { name: "Shaggy", slug: "shaggy", palette: "Charcoal", medallion: true },
+import { type CollectionCard, CollectionCards } from "./collection-cards";
+
+// Throws on failure so a database error is never cached as "no collections".
+async function loadCollections() {
+  "use cache";
+  cacheTag("products");
+  cacheLife("hours");
+  return listCollectionCovers();
+}
+
+/**
+ * Collections the shop does not sell yet. Each one shows as a "Coming soon" card with a stand-in
+ * picture. As soon as the shop has a category whose name or slug matches `match` with a live
+ * product that has a photo, the real card takes its place and the stand-in disappears by itself.
+ * To remove one for good, delete its entry here.
+ */
+const comingSoon: ComingSoonCollection[] = [
+  { name: "Dari", slug: "dari", match: /dari|dhurrie|durrie/i, photo: "/images/collections/dari.jpg" },
 ];
 
-export function CraftGrid() {
-  return (
-    <section>
-      <div className="mx-auto max-w-7xl px-4 pt-20 sm:px-6 lg:px-8 lg:pt-32">
-        <h2 className="text-title font-semibold">Shop by craft.</h2>
-        <div className="mt-12 grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
-          {crafts.map(({ name, slug, palette, medallion }) => (
-            <Link
-              key={name}
-              href={`/products?category=${slug}`}
-              className="group relative block aspect-square overflow-hidden rounded-3xl bg-muted"
-            >
-              <RugIllustration
-                palette={palette}
-                medallion={medallion}
-                viewBox="110 230 380 380"
-                className="size-full transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none"
-              />
-              <span className="liquid-glass absolute bottom-3 left-3 rounded-full px-4 py-2 text-base text-primary-foreground">
-                {name}
-              </span>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
+/**
+ * "Explore the collections": one photo card per category, using a real product photo from that
+ * category, followed by a "Coming soon" card for each collection in `comingSoon` that the shop
+ * does not have yet.
+ */
+export async function CraftGrid() {
+  let collections: Awaited<ReturnType<typeof loadCollections>> = [];
+  try {
+    collections = await loadCollections();
+  } catch (error) {
+    console.error(`Could not load the collections: ${describeDbError(error)}`);
+    // Without the shop's own collections, a lone "Coming soon" card would look odd.
+    return null;
+  }
+
+  const cards: CollectionCard[] = collections.map(({ name, slug, coverId }) => ({
+    name,
+    href: `/products?category=${slug}`,
+    coverId,
+  }));
+  for (const { name, slug, photo } of pendingCollections(comingSoon, collections)) {
+    cards.push({ name, href: `/products?category=${slug}`, photo, badge: "Coming soon" });
+  }
+  if (cards.length === 0) return null;
+
+  return <CollectionCards id="collections" title="Explore the collections" cards={cards} />;
 }

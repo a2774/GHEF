@@ -79,7 +79,14 @@ export function CheckoutForm({
     }
     setError(null);
     startTransition(async () => {
-      const result = await placeOrderAction({ addressId: selectedAddress, method, idempotencyKey });
+      let result: Awaited<ReturnType<typeof placeOrderAction>>;
+      try {
+        result = await placeOrderAction({ addressId: selectedAddress, method, idempotencyKey });
+      } catch {
+        // The request itself failed (connection lost, or the server was restarted while the page was open).
+        setError("We could not reach the server, so no order was placed. Reload the page and try again.");
+        return;
+      }
       if (!result.ok) {
         setError(result.error);
         return;

@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
   boolean,
@@ -43,6 +43,12 @@ export const products = pgTable(
     status: productStatus("status").notNull().default("draft"),
     isFeatured: boolean("is_featured").notNull().default(false),
     isBestseller: boolean("is_bestseller").notNull().default(false),
+    // Ships from ready stock instead of being woven to order.
+    isReadyToDispatch: boolean("is_ready_to_dispatch").notNull().default(false),
+    // Room slugs from ROOMS in lib/catalog-taxonomy.ts, e.g. "living-room".
+    rooms: text("rooms").array().notNull().default(sql`'{}'::text[]`),
+    pileHeight: text("pile_height"),
+    backing: text("backing"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("products_category_id_idx").on(table.categoryId)],
@@ -118,6 +124,8 @@ export const orders = pgTable(
     paymentMethod: text("payment_method").notNull(),
     subtotalPaise: integer("subtotal_paise").notNull(),
     discountPaise: integer("discount_paise").notNull().default(0),
+    // Human readable breakdown, e.g. "Buy 3: -₹2,000 · Prepaid: -₹500".
+    discountNote: text("discount_note"),
     shippingPaise: integer("shipping_paise").notNull().default(0),
     totalPaise: integer("total_paise").notNull(),
     courier: text("courier"),
@@ -395,7 +403,7 @@ export const wishlistItems = pgTable(
   (table) => [primaryKey({ columns: [table.userId, table.productId] })],
 );
 
-export const enquiryType = pgEnum("enquiry_type", ["custom", "bulk"]);
+export const enquiryType = pgEnum("enquiry_type", ["custom", "bulk", "cleaning", "wall_to_wall"]);
 
 export const enquiries = pgTable("enquiries", {
   id: serial("id").primaryKey(),
@@ -406,6 +414,20 @@ export const enquiries = pgTable("enquiries", {
   status: text("status").notNull().default("new"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const stockAlerts = pgTable(
+  "stock_alerts",
+  {
+    id: serial("id").primaryKey(),
+    variantId: integer("variant_id")
+      .notNull()
+      .references(() => productVariants.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    notifiedAt: timestamp("notified_at", { withTimezone: true }),
+  },
+  (table) => [uniqueIndex("stock_alerts_variant_email_idx").on(table.variantId, table.email)],
+);
 
 export const newsletterSubscribers = pgTable("newsletter_subscribers", {
   id: serial("id").primaryKey(),

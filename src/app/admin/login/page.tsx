@@ -1,4 +1,5 @@
-import { Boxes } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 import { LoginForm } from "@/components/admin/login-form";
@@ -7,34 +8,28 @@ export const instant = false;
 
 export default function AdminLoginPage() {
   return (
-    <main className="flex min-h-svh items-center justify-center p-4 bg-[#f8fafc] bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:20px_20px]">
-      <div className="w-full max-w-sm rounded-3xl border border-slate-200/90 bg-white p-8 shadow-sm">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#bef264] text-slate-950 font-black shadow-xs">
-            <Boxes className="size-5 text-slate-950" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-950">
-              Ganga Handmade
-            </h1>
-            <p className="text-xs font-mono text-slate-500 uppercase tracking-wider">
-              Export Admin Portal
-            </p>
-          </div>
+    <main className="flex min-h-svh items-center justify-center bg-slate-50 px-5 py-10">
+      <div className="w-full max-w-sm">
+        <div className="mb-6 flex flex-col items-center text-center">
+          <Image src="/brand-symbol.svg" alt="" width={56} height={56} className="size-14" priority />
+          <p className="mt-3 text-lg font-semibold tracking-tight text-slate-950">Ganga Handmade Export</p>
+          <p className="font-mono text-[11px] tracking-[0.18em] text-slate-500 uppercase">Admin portal</p>
         </div>
 
-        <p className="text-xs text-slate-500 mb-2">
-          Secure, role-gated administrative sign in.
-        </p>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-950">Sign in</h1>
+          <p className="mt-1.5 text-sm text-slate-500">Use your admin email and password.</p>
 
-        <LoginForm />
+          <LoginForm />
+        </div>
 
-        <div className="mt-8 border-t border-slate-100 pt-4 text-center">
+        <div className="mt-6 text-center">
           <Link
             href="/"
-            className="text-xs text-slate-400 hover:text-slate-700 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition-colors hover:text-slate-950"
           >
-            ← Return to public storefront
+            <ArrowLeft aria-hidden="true" className="size-4" />
+            Back to the store
           </Link>
         </div>
       </div>

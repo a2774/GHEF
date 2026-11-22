@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, min } from "drizzle-orm";
 
+import { compareSizes } from "@/lib/catalog-taxonomy";
 import { db, withDbRetry } from "@/server/db";
 import { categories, productImages, products, productVariants } from "@/server/db/schema";
 
@@ -57,6 +58,12 @@ export async function getProductBySlug(slug: string) {
         description: products.description,
         material: products.material,
         category: categories.name,
+        categorySlug: categories.slug,
+        rooms: products.rooms,
+        pileHeight: products.pileHeight,
+        backing: products.backing,
+        isReadyToDispatch: products.isReadyToDispatch,
+        isBestseller: products.isBestseller,
       })
       .from(products)
       .innerJoin(categories, eq(products.categoryId, categories.id))
@@ -70,6 +77,7 @@ export async function getProductBySlug(slug: string) {
           size: productVariants.size,
           color: productVariants.color,
           pricePaise: productVariants.pricePaise,
+          mrpPaise: productVariants.mrpPaise,
           stock: productVariants.stock,
         })
         .from(productVariants)
@@ -82,7 +90,7 @@ export async function getProductBySlug(slug: string) {
         .orderBy(desc(productImages.isPrimary), asc(productImages.id)),
     ]);
 
-    return { ...product, variants, images };
+    return { ...product, variants: [...variants].sort((a, b) => compareSizes(a.size, b.size) || a.pricePaise - b.pricePaise), images };
   });
 }
 

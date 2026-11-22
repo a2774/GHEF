@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { consumeAttempt } from "@/server/auth/admin-session";
 import { subscribeToNewsletter } from "@/server/services/newsletter";
+import { markAdminDataChanged } from "@/server/services/admin-cache";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -25,6 +26,7 @@ export async function POST(request: Request) {
 
   try {
     await subscribeToNewsletter(email);
+    markAdminDataChanged();
     return NextResponse.json({ subscribed: true });
   } catch (error) {
     console.error("Failed to subscribe to newsletter:", error);

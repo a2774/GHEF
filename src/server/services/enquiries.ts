@@ -1,13 +1,17 @@
 import { desc, eq } from "drizzle-orm";
+import { cacheLife, cacheTag } from "next/cache";
 
+import { ENQUIRY_TYPES } from "@/lib/catalog-taxonomy";
 import { db, withDbRetry } from "@/server/db";
 import { enquiries } from "@/server/db/schema";
 import { notifyOwner } from "@/server/services/notifications";
 
+import { adminDataTag } from "./admin-cache";
+
 export type NewEnquiry = typeof enquiries.$inferInsert;
 export type Enquiry = typeof enquiries.$inferSelect;
 
-export const enquiryLabels = { custom: "Custom size", bulk: "Bulk or export" } as const;
+export const enquiryLabels = ENQUIRY_TYPES;
 
 export async function createEnquiry(enquiry: NewEnquiry) {
   await withDbRetry(async () => db.insert(enquiries).values(enquiry));
@@ -25,6 +29,9 @@ export async function createEnquiry(enquiry: NewEnquiry) {
 }
 
 export async function listEnquiries(status?: string) {
+  "use cache";
+  cacheTag(adminDataTag);
+  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
   return withDbRetry(async () =>
     db
       .select()

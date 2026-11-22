@@ -1,27 +1,33 @@
 import { and, avg, count, desc, eq, inArray } from "drizzle-orm";
+import { cacheLife, cacheTag } from "next/cache";
 
 import { db, withDbRetry } from "@/server/db";
 import { orderItems, orders, products, productVariants, reviews, users } from "@/server/db/schema";
 
+import { adminDataTag } from "./admin-cache";
+
 export async function getProductReviews(productId: number) {
   return withDbRetry(async () => {
-    const rows = await db
-      .select({
-        id: reviews.id,
-        rating: reviews.rating,
-        body: reviews.body,
-        name: users.name,
-        createdAt: reviews.createdAt,
-      })
-      .from(reviews)
-      .innerJoin(users, eq(reviews.userId, users.id))
-      .where(and(eq(reviews.productId, productId), eq(reviews.status, "approved")))
-      .orderBy(desc(reviews.createdAt))
-      .limit(20);
-    const [summary] = await db
-      .select({ average: avg(reviews.rating), total: count() })
-      .from(reviews)
-      .where(and(eq(reviews.productId, productId), eq(reviews.status, "approved")));
+    // The list and the average do not depend on each other, so they run together.
+    const [rows, [summary]] = await Promise.all([
+      db
+        .select({
+          id: reviews.id,
+          rating: reviews.rating,
+          body: reviews.body,
+          name: users.name,
+          createdAt: reviews.createdAt,
+        })
+        .from(reviews)
+        .innerJoin(users, eq(reviews.userId, users.id))
+        .where(and(eq(reviews.productId, productId), eq(reviews.status, "approved")))
+        .orderBy(desc(reviews.createdAt))
+        .limit(20),
+      db
+        .select({ average: avg(reviews.rating), total: count() })
+        .from(reviews)
+        .where(and(eq(reviews.productId, productId), eq(reviews.status, "approved"))),
+    ]);
     return { rows, average: Number(summary.average ?? 0), total: summary.total };
   });
 }
@@ -46,6 +52,9 @@ export async function hasPurchasedProduct(userId: string, productId: number) {
 }
 
 export async function listPendingReviews() {
+  "use cache";
+  cacheTag(adminDataTag);
+  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
   return withDbRetry(async () =>
     db
       .select({

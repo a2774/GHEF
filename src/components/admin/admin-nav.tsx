@@ -132,19 +132,51 @@ function hasRole(admin: AdminIdentity, required: AdminRole) {
   return roleHierarchy[admin.role] >= roleHierarchy[required];
 }
 
+const countText = (count: number) => (count > 99 ? "99+" : String(count));
+
+/** The number of orders still to ship, on the right of the "Orders" link. */
+function NavCount({ count, active }: { count: number; active: boolean }) {
+  return (
+    <span
+      title="Orders not shipped yet"
+      className={`ml-2 inline-flex min-w-6 shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold ${
+        active ? "bg-slate-950 text-white" : "bg-[#bef264] text-slate-950"
+      }`}
+    >
+      {countText(count)}
+      <span className="sr-only"> orders not shipped yet</span>
+    </span>
+  );
+}
+
+/** The same number as a small round badge on the icon, when the sidebar is minimised. */
+function IconCount({ count }: { count: number }) {
+  return (
+    <span className="absolute -top-1 -right-1 flex min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] leading-4 font-bold text-white">
+      {countText(count)}
+      <span className="sr-only"> orders not shipped yet</span>
+    </span>
+  );
+}
+
 export function AdminNav({
   admin,
+  ordersToProcess = 0,
   onNavigate,
   isCollapsed = false,
   onToggleCollapse,
 }: {
   admin: AdminIdentity;
+  /** Orders not shipped yet; shown as a badge on "Orders". */
+  ordersToProcess?: number;
   onNavigate?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }) {
   const pathname = usePathname();
   const { isPro } = useAdminMode();
+
+  const countFor = (href: string) => (href === "/admin/orders" ? ordersToProcess : 0);
 
   function isActive(href: string) {
     if (href === "/admin") return pathname === "/admin";
@@ -226,6 +258,7 @@ export function AdminNav({
                               }`}
                             >
                               <Icon className="size-4.5 shrink-0" />
+                              {countFor(item.href) > 0 && <IconCount count={countFor(item.href)} />}
                             </Link>
                           </TooltipTrigger>
                           <TooltipContent side="right">
@@ -262,6 +295,7 @@ export function AdminNav({
                             }`}
                           >
                             <Icon className="size-4.5 shrink-0" />
+                            {countFor(item.href) > 0 && <IconCount count={countFor(item.href)} />}
                           </Link>
                         </TooltipTrigger>
                         <TooltipContent side="right">
@@ -364,13 +398,13 @@ export function AdminNav({
         {!isPro ? (
           /* Normal Mode: Clean Flat List of Necessary Pages Only */
           <div className="flex-1 min-h-0 flex flex-col">
-            <div className="px-4 pt-3 pb-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+            <div className="px-4 pt-4 pb-2 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
               Operations
             </div>
 
             <nav
               aria-label="Admin Normal Navigation"
-              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2.5 py-1 space-y-1 no-scrollbar"
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2.5 py-2 space-y-2 no-scrollbar"
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
               {normalNavItems
@@ -384,7 +418,7 @@ export function AdminNav({
                       key={item.href}
                       href={item.href}
                       onClick={onNavigate}
-                      className={`group flex items-center justify-between rounded-xl px-3 py-2 text-xs font-medium transition-all ${
+                      className={`group flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
                         active
                           ? "bg-[#bef264] text-slate-950 font-bold shadow-xs scale-[1.01]"
                           : "text-slate-300 hover:bg-white/10 hover:text-white"
@@ -392,7 +426,7 @@ export function AdminNav({
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <Icon
-                          className={`size-4 shrink-0 transition-colors ${
+                          className={`size-[18px] shrink-0 transition-colors ${
                             active
                               ? "text-slate-950"
                               : "text-slate-400 group-hover:text-slate-200"
@@ -400,8 +434,10 @@ export function AdminNav({
                         />
                         <span className="truncate">{item.label}</span>
                       </div>
-                      {active && (
-                        <span className="size-1.5 rounded-full bg-slate-950 shrink-0" />
+                      {countFor(item.href) > 0 ? (
+                        <NavCount count={countFor(item.href)} active={active} />
+                      ) : (
+                        active && <span className="size-1.5 rounded-full bg-slate-950 shrink-0" />
                       )}
                     </Link>
                   );
@@ -413,7 +449,7 @@ export function AdminNav({
           <div className="flex-1 min-h-0 flex flex-col">
             <nav
               aria-label="Admin Navigation"
-              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2.5 py-2 space-y-4 no-scrollbar"
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2.5 py-2 space-y-5 no-scrollbar"
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
               {proNavSections.map((section) => {
@@ -424,11 +460,11 @@ export function AdminNav({
 
                 return (
                   <div key={section.title} className="space-y-1">
-                    <div className="px-3 pt-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                    <div className="px-3.5 pt-1 pb-0.5 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
                       {section.title}
                     </div>
 
-                    <div className="space-y-0.5">
+                    <div className="space-y-1.5">
                       {accessibleItems.map((item) => {
                         const active = isActive(item.href);
                         const Icon = item.icon;
@@ -438,15 +474,15 @@ export function AdminNav({
                             key={item.href}
                             href={item.href}
                             onClick={onNavigate}
-                            className={`group flex items-center justify-between rounded-xl px-3 py-2 text-xs font-medium transition-all ${
+                            className={`group flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
                               active
                                 ? "bg-[#bef264] text-slate-950 font-bold shadow-xs scale-[1.01]"
                                 : "text-slate-300 hover:bg-white/10 hover:text-white"
                             }`}
                           >
-                            <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="flex items-center gap-3 min-w-0">
                               <Icon
-                                className={`size-4 shrink-0 transition-colors ${
+                                className={`size-[18px] shrink-0 transition-colors ${
                                   active
                                     ? "text-slate-950"
                                     : "text-slate-400 group-hover:text-slate-200"
@@ -454,8 +490,10 @@ export function AdminNav({
                               />
                               <span className="truncate">{item.label}</span>
                             </div>
-                            {active && (
-                              <span className="size-1.5 rounded-full bg-slate-950 shrink-0" />
+                            {countFor(item.href) > 0 ? (
+                              <NavCount count={countFor(item.href)} active={active} />
+                            ) : (
+                              active && <span className="size-1.5 rounded-full bg-slate-950 shrink-0" />
                             )}
                           </Link>
                         );
