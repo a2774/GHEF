@@ -129,7 +129,9 @@ export async function placeOrder(
           customerEmail: user.email,
           customerPhone: address.phone,
           shippingAddress: formatAddress(address),
-          status: input.method === "cod" ? "confirmed" : "pending",
+          // Every new order starts as Pending. The owner confirms a cash on delivery order by hand; an
+          // online order confirms itself when its payment arrives (markPaymentPaid).
+          status: "pending",
           paymentMethod: input.method === "cod" ? "Cash on delivery" : "Razorpay",
           subtotalPaise: totals.subtotalPaise,
           discountPaise: totals.discountPaise,
@@ -183,7 +185,7 @@ async function clearCart(tx: Transaction, userId: string) {
 async function announceOrder(order: typeof orders.$inferSelect) {
   await notifyOwner({
     subject: `New order ${order.orderNumber}`,
-    text: `${order.customerName} placed order ${order.orderNumber} by ${order.paymentMethod}.`,
+    text: `${order.customerName} placed order ${order.orderNumber} by ${order.paymentMethod}. Open Orders in the admin panel and confirm it.`,
     replyTo: order.customerEmail,
   });
 }

@@ -5,6 +5,7 @@ import { AdminSidebarWrapper } from "@/components/admin/admin-sidebar-wrapper";
 import { AdminTopBar } from "@/components/admin/admin-topbar";
 import { AdminModeProvider } from "@/components/admin/admin-mode-context";
 import { getAdmin } from "@/server/auth/admin-session";
+import { getOrdersToProcessCount } from "@/server/services/admin";
 
 export const instant = false;
 
@@ -12,7 +13,9 @@ async function AdminSidebarContent() {
   const admin = await getAdmin();
   if (!admin) return null;
 
-  return <AdminSidebarWrapper admin={admin} />;
+  // A database hiccup must not take the sidebar away: without the number it simply shows no badge.
+  const ordersToProcess = await getOrdersToProcessCount().catch(() => 0);
+  return <AdminSidebarWrapper admin={admin} ordersToProcess={ordersToProcess} />;
 }
 
 async function AdminTopBarContent() {

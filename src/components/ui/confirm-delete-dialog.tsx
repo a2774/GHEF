@@ -25,6 +25,10 @@ interface ConfirmDeleteDialogProps {
   itemName?: string;
   confirmText?: string;
   cancelText?: string;
+  /** Shown on the confirm button while the action runs. */
+  pendingText?: string;
+  /** Icon on the confirm button. */
+  confirmIcon?: React.ReactNode;
   successMessage?: string;
   onConfirm: () => Promise<unknown> | unknown;
 }
@@ -38,6 +42,8 @@ export function ConfirmDeleteDialog({
   itemName,
   confirmText = "Delete Permanently",
   cancelText = "Cancel",
+  pendingText = "Deleting...",
+  confirmIcon = <Trash2 className="size-3.5" />,
   successMessage,
   onConfirm,
 }: ConfirmDeleteDialogProps) {
@@ -100,11 +106,11 @@ export function ConfirmDeleteDialog({
             {isPending ? (
               <>
                 <Loader2 className="size-3.5 animate-spin" />
-                <span>Deleting...</span>
+                <span>{pendingText}</span>
               </>
             ) : (
               <>
-                <Trash2 className="size-3.5" />
+                {confirmIcon}
                 <span>{confirmText}</span>
               </>
             )}

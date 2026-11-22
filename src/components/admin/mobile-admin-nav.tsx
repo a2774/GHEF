@@ -8,7 +8,7 @@ import { AdminNav } from "./admin-nav";
 import type { AdminIdentity } from "@/server/auth/admin-session";
 import { useAdminMode } from "@/components/admin/admin-mode-context";
 
-export function MobileAdminNav({ admin }: { admin: AdminIdentity }) {
+export function MobileAdminNav({ admin, ordersToProcess }: { admin: AdminIdentity; ordersToProcess: number }) {
   const [open, setOpen] = useState(false);
   const { toggleMode, isPro } = useAdminMode();
 
@@ -57,7 +57,7 @@ export function MobileAdminNav({ admin }: { admin: AdminIdentity }) {
             onClick={() => setOpen(false)}
           />
           <div className="relative flex w-4/5 max-w-xs h-full flex-col bg-[#0B0F19] text-white shadow-2xl border-r border-white/10 overflow-hidden">
-            <AdminNav admin={admin} onNavigate={() => setOpen(false)} />
+            <AdminNav admin={admin} ordersToProcess={ordersToProcess} onNavigate={() => setOpen(false)} />
           </div>
         </div>
       )}

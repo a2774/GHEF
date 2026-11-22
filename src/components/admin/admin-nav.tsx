@@ -132,19 +132,51 @@ function hasRole(admin: AdminIdentity, required: AdminRole) {
   return roleHierarchy[admin.role] >= roleHierarchy[required];
 }
 
+const countText = (count: number) => (count > 99 ? "99+" : String(count));
+
+/** The number of orders still to ship, on the right of the "Orders" link. */
+function NavCount({ count, active }: { count: number; active: boolean }) {
+  return (
+    <span
+      title="Orders not shipped yet"
+      className={`ml-2 inline-flex min-w-6 shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold ${
+        active ? "bg-slate-950 text-white" : "bg-[#bef264] text-slate-950"
+      }`}
+    >
+      {countText(count)}
+      <span className="sr-only"> orders not shipped yet</span>
+    </span>
+  );
+}
+
+/** The same number as a small round badge on the icon, when the sidebar is minimised. */
+function IconCount({ count }: { count: number }) {
+  return (
+    <span className="absolute -top-1 -right-1 flex min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] leading-4 font-bold text-white">
+      {countText(count)}
+      <span className="sr-only"> orders not shipped yet</span>
+    </span>
+  );
+}
+
 export function AdminNav({
   admin,
+  ordersToProcess = 0,
   onNavigate,
   isCollapsed = false,
   onToggleCollapse,
 }: {
   admin: AdminIdentity;
+  /** Orders not shipped yet; shown as a badge on "Orders". */
+  ordersToProcess?: number;
   onNavigate?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }) {
   const pathname = usePathname();
   const { isPro } = useAdminMode();
+
+  const countFor = (href: string) => (href === "/admin/orders" ? ordersToProcess : 0);
 
   function isActive(href: string) {
     if (href === "/admin") return pathname === "/admin";
@@ -226,6 +258,7 @@ export function AdminNav({
                               }`}
                             >
                               <Icon className="size-4.5 shrink-0" />
+                              {countFor(item.href) > 0 && <IconCount count={countFor(item.href)} />}
                             </Link>
                           </TooltipTrigger>
                           <TooltipContent side="right">
@@ -262,6 +295,7 @@ export function AdminNav({
                             }`}
                           >
                             <Icon className="size-4.5 shrink-0" />
+                            {countFor(item.href) > 0 && <IconCount count={countFor(item.href)} />}
                           </Link>
                         </TooltipTrigger>
                         <TooltipContent side="right">
@@ -400,8 +434,10 @@ export function AdminNav({
                         />
                         <span className="truncate">{item.label}</span>
                       </div>
-                      {active && (
-                        <span className="size-1.5 rounded-full bg-slate-950 shrink-0" />
+                      {countFor(item.href) > 0 ? (
+                        <NavCount count={countFor(item.href)} active={active} />
+                      ) : (
+                        active && <span className="size-1.5 rounded-full bg-slate-950 shrink-0" />
                       )}
                     </Link>
                   );
@@ -454,8 +490,10 @@ export function AdminNav({
                               />
                               <span className="truncate">{item.label}</span>
                             </div>
-                            {active && (
-                              <span className="size-1.5 rounded-full bg-slate-950 shrink-0" />
+                            {countFor(item.href) > 0 ? (
+                              <NavCount count={countFor(item.href)} active={active} />
+                            ) : (
+                              active && <span className="size-1.5 rounded-full bg-slate-950 shrink-0" />
                             )}
                           </Link>
                         );

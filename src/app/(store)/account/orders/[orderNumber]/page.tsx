@@ -7,7 +7,7 @@ import { LoginPrompt } from "@/components/store/login-prompt";
 import { OrderActions } from "@/components/store/order-actions";
 import { formatPaise } from "@/lib/format";
 import { getCustomerSession } from "@/server/auth/customer-session";
-import { canCustomerCancel, canTransition, orderStatusLabel } from "@/server/services/order-rules";
+import { canCustomerCancel, canTransition, customerStatusLabel, orderStatusLabel } from "@/server/services/order-rules";
 import { getCustomerOrder } from "@/server/services/orders";
 
 export const metadata: Metadata = {
@@ -30,7 +30,7 @@ async function OrderDetail({ params }: Params) {
     <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
       <section className="rounded-3xl bg-muted p-6">
         <h2 className="text-2xl font-semibold tracking-tight">{order.orderNumber}</h2>
-        <p className="mt-1 text-lg">{orderStatusLabel(order.status)}</p>
+        <p className="mt-1 text-lg">{customerStatusLabel(order.status, order.paymentMethod)}</p>
         <ul className="mt-4 space-y-2 border-t border-border pt-4 text-base">
           {items.map((item) => (
             <li key={item.id} className="flex justify-between gap-4">

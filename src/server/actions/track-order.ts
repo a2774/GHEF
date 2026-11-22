@@ -7,7 +7,7 @@ import { z } from "zod";
 import { consumeAttempt } from "@/server/auth/admin-session";
 import { db, withDbRetry } from "@/server/db";
 import { orderItems, orders } from "@/server/db/schema";
-import { type OrderStatus, orderStatusLabel } from "@/server/services/order-rules";
+import { customerStatusLabel, type OrderStatus } from "@/server/services/order-rules";
 
 const schema = z.object({
   orderNumber: z.string().trim().toUpperCase().min(6).max(40),
@@ -60,7 +60,7 @@ export async function trackOrder(input: { orderNumber: string; phone: string }):
     order: {
       orderNumber: order.orderNumber,
       status: order.status,
-      statusLabel: orderStatusLabel(order.status),
+      statusLabel: customerStatusLabel(order.status, order.paymentMethod),
       placedOn: new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(order.createdAt),
       courier: order.courier,
       trackingNumber: order.trackingNumber,

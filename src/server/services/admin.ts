@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, ilike, lte, notInArray, or, sql, sum } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, lte, notInArray, or, sql, sum } from "drizzle-orm";
 
 import { cacheLife, cacheTag } from "next/cache";
 
@@ -28,6 +28,56 @@ import { getStoreSettings } from "./settings";
 export const lowStockThreshold = 3;
 
 export type OrderStatus = (typeof orderStatus.enumValues)[number];
+
+/** The date buttons on the Orders page. "custom" uses the from and to dates. */
+export type OrderRange = "all" | "24h" | "7d" | "30d" | "90d" | "365d" | "custom";
+export const orderRanges: readonly OrderRange[] = ["all", "24h", "7d", "30d", "90d", "365d", "custom"];
+const rangeHours = { "24h": 24, "7d": 168, "30d": 720, "90d": 2160, "365d": 8760 } as const;
+
+/** The statuses of an order that has not been shipped yet: it still needs the owner. */
+export const ordersToProcessStatuses = ["pending", "confirmed", "processing", "packed"] as const;
+
+/** How many orders are not shipped yet (the number on "Orders" in the sidebar). Read fresh from the database. */
+export async function countOrdersToProcess(): Promise<number> {
+  const [row] = await withDbRetry(async () =>
+    db.select({ total: count() }).from(orders).where(inArray(orders.status, [...ordersToProcessStatuses])),
+  );
+  return row?.total ?? 0;
+}
+
+/** The same number for the page load: cached, and cleared by every new order and every change in the panel. */
+export async function getOrdersToProcessCount(): Promise<number> {
+  "use cache";
+  cacheTag(adminDataTag);
+  cacheLife({ stale: 30, revalidate: 60, expire: 3600 });
+  return countOrdersToProcess();
+}
+
+/** An order with the pieces it contains, so the list can show what was bought without opening it. */
+export type OrderRow = typeof orders.$inferSelect & {
+  items: { title: string; size: string; color: string; quantity: number }[];
+};
+
+async function withOrderItems(rows: (typeof orders.$inferSelect)[]): Promise<OrderRow[]> {
+  if (rows.length === 0) return [];
+  const items = await db
+    .select({
+      orderId: orderItems.orderId,
+      title: orderItems.title,
+      size: orderItems.size,
+      color: orderItems.color,
+      quantity: orderItems.quantity,
+    })
+    .from(orderItems)
+    .where(inArray(orderItems.orderId, rows.map((row) => row.id)))
+    .orderBy(asc(orderItems.id));
+
+  const byOrder = new Map<number, OrderRow["items"]>();
+  for (const { orderId, ...item } of items) {
+    byOrder.set(orderId, [...(byOrder.get(orderId) ?? []), item]);
+  }
+  return rows.map((row) => ({ ...row, items: byOrder.get(row.id) ?? [] }));
+}
 
 export async function getDashboardData() {
   "use cache";
@@ -157,7 +207,7 @@ export async function getDashboardData() {
       pendingCount: countFor(["pending", "confirmed", "processing", "packed"]),
       completedCount: countFor(["delivered"]),
       lowStock,
-      recentOrders,
+      recentOrders: await withOrderItems(recentOrders),
       recentEnquiries,
       statusCounts,
       bestSellers,
@@ -245,19 +295,37 @@ export async function getAdminProduct(id: number) {
   });
 }
 
-export async function listOrders(search: string, status: OrderStatus | undefined) {
+export async function listOrders(
+  search: string,
+  status: OrderStatus | undefined,
+  range: OrderRange = "all",
+  from = "",
+  to = "",
+) {
   "use cache";
   cacheTag(adminDataTag);
-  // Admin pages render from this cache, so links can prefetch them. Any change clears it.
-  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
+  // Cleared by every new order and every change in the panel. The browser keeps the page for only
+  // 30 seconds (the shortest allowed), so a new order shows when the owner next opens the page,
+  // not 5 minutes later.
+  cacheLife({ stale: 30, revalidate: 60, expire: 3600 });
   const term = `%${search.trim()}%`;
-  return withDbRetry(async () =>
+
+  // "24h", "7d" ... count back from now in the database; "custom" uses whole days in Indian time.
+  const recent = range !== "all" && range !== "custom" ? rangeHours[range] : null;
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/;
+  const since = range === "custom" && dateOnly.test(from) ? new Date(`${from}T00:00:00+05:30`) : null;
+  const until = range === "custom" && dateOnly.test(to) ? new Date(`${to}T23:59:59.999+05:30`) : null;
+
+  const rows = await withDbRetry(async () =>
     db
       .select()
       .from(orders)
       .where(
         and(
           status ? eq(orders.status, status) : undefined,
+          recent ? gte(orders.createdAt, sql`now() - make_interval(hours => ${recent})`) : undefined,
+          since ? gte(orders.createdAt, since) : undefined,
+          until ? lte(orders.createdAt, until) : undefined,
           search.trim()
             ? or(
                 ilike(orders.orderNumber, term),
@@ -271,13 +339,14 @@ export async function listOrders(search: string, status: OrderStatus | undefined
       .orderBy(desc(orders.createdAt))
       .limit(100),
   );
+  return withDbRetry(async () => withOrderItems(rows));
 }
 
 export async function getAdminOrder(id: number) {
   "use cache";
   cacheTag(adminDataTag);
-  // Admin pages render from this cache, so links can prefetch them. Any change clears it.
-  cacheLife({ stale: 300, revalidate: 60, expire: 3600 });
+  // Like the orders list: cleared by every change, and kept in the browser for 30 seconds only.
+  cacheLife({ stale: 30, revalidate: 60, expire: 3600 });
   return withDbRetry(async () => {
     const [[order], items, [returnRequest], paymentRows] = await Promise.all([
       db.select().from(orders).where(eq(orders.id, id)),
